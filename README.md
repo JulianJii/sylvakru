@@ -181,3 +181,6 @@ flutter build apk --dart-define=TV=true
 ![](./screenshots/desktop4.png)
 ![](./screenshots/desktop5.png)
 ![](./screenshots/desktop6.png)
+
+
+C:\sdk\flutter\bin\flutter.bat --no-color run --machine --track-widget-creation --device-id=emulator-5554 --start-paused --dart-define=flutter.inspector.structuredErrors=true --devtools-server-address=http://127.0.0.1:9100 lib\main.dart

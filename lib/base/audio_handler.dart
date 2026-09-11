@@ -46,29 +46,37 @@ final autoPlayOnStartupNotifier = ValueNotifier(false);
 
 Future<void> initAudioService() async {
   MediaKit.ensureInitialized();
-  audioHandler = await AudioService.init(
-    builder: () => MyAudioHandler(),
+  try {
+    audioHandler = await AudioService.init(
+      builder: () => MyAudioHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationChannelId: 'com.afalphy.sylvakru',
+        androidNotificationChannelName: 'Sylvakru',
+        androidNotificationOngoing: true,
+      ),
+    );
+  } catch (e, stack) {
+    logger.output("AudioService.init failed: $e\n$stack");
+    audioHandler = MyAudioHandler();
+  }
 
-    config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.afalphy.sylvakru',
-      androidNotificationChannelName: 'Sylvakru',
-      androidNotificationOngoing: true,
-    ),
-  );
-  _session = await AudioSession.instance;
-  await _session.configure(AudioSessionConfiguration.music());
+  try {
+    _session = await AudioSession.instance;
+    await _session.configure(AudioSessionConfiguration.music());
+    await _session.setActive(true);
 
-  await _session.setActive(true);
-
-  _session.becomingNoisyEventStream.listen((_) {
-    audioHandler.pause();
-  });
-
-  _session.interruptionEventStream.listen((event) {
-    if (event.begin) {
+    _session.becomingNoisyEventStream.listen((_) {
       audioHandler.pause();
-    }
-  });
+    });
+
+    _session.interruptionEventStream.listen((event) {
+      if (event.begin) {
+        audioHandler.pause();
+      }
+    });
+  } catch (e, stack) {
+    logger.output("AudioSession configure failed: $e\n$stack");
+  }
 }
 
 class MyAudioHandler extends BaseAudioHandler {
