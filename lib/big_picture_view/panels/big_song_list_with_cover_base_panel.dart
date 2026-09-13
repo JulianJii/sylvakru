@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
-import 'package:rive_animated_icon/rive_animated_icon.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 import 'package:sylvakru/base/app.dart';
 import 'package:sylvakru/base/asset_images.dart';
@@ -22,6 +21,7 @@ import 'package:sylvakru/base/utils/zoom_page_route.dart';
 import 'package:sylvakru/base/widgets/big_play_bar.dart';
 import 'package:sylvakru/base/widgets/cover_art_widget.dart';
 import 'package:sylvakru/base/widgets/my_divider.dart';
+import 'package:sylvakru/base/widgets/playing_bars_icon.dart';
 import 'package:sylvakru/base/widgets/selectable_song_list_page.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
 
@@ -377,15 +377,8 @@ abstract class BigSongListWithCoverBasePanelState<
                             iconColor.valueNotifier,
                           ]),
                           builder: (context, child) {
-                            return RiveAnimatedIcon(
-                              key: ValueKey(
-                                isPlayingNotifier.value.toString() +
-                                    iconColor.value.toString(),
-                              ),
-                              riveIcon: .sound,
-                              width: 35,
-                              height: 35,
-                              loopAnimation: isPlayingNotifier.value,
+                            return PlayingBarsIcon(
+                              playing: isPlayingNotifier.value,
                               color: iconColor.value,
                             );
                           },

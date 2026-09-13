@@ -709,16 +709,10 @@ extension _SongListPanel on _SongListState {
               iconColor.valueNotifier,
             ]),
             builder: (context, child) {
-              return RiveAnimatedIcon(
-                key: ValueKey(
-                  isPlayingNotifier.value.toString() +
-                      iconColor.value.toString(),
-                ),
-                riveIcon: .sound,
-                width: 30,
-                height: 30,
-                loopAnimation: isPlayingNotifier.value,
+              return PlayingBarsIcon(
+                playing: isPlayingNotifier.value,
                 color: iconColor.value,
+                size: 30,
               );
             },
           );
