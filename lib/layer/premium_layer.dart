@@ -10,7 +10,7 @@ import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/landscape_view/title_bar.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
 import 'package:sylvakru/layer/settings_layer.dart';
-import 'package:sylvakru/portrait_view/custom_appbar_leading.dart';
+import 'package:sylvakru/portrait_view/my_app_bar.dart';
 
 final trialRemainingMinNotifier = ValueNotifier(-1);
 
@@ -49,17 +49,7 @@ class _PremiumLayerState extends State<PremiumLayer> {
     if (isTooNarrow(context)) {
       return Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          leading: customAppBarLeading(label: 'settings'),
-          backgroundColor: Colors.transparent,
-          systemOverlayStyle: mainPageThemeNotifier.value == .dark
-              ? .light
-              : .dark,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          centerTitle: true,
-        ),
+        appBar: const MyAppBar.detail(backLabel: 'settings'),
         body: premiumContent(context),
       );
     }

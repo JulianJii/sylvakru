@@ -17,30 +17,29 @@ extension _SongListPage on _SongListState {
   }
 
   PreferredSizeWidget customAppBar(BuildContext context) {
-    return AppBar(
-      automaticallyImplyLeading: false,
-      leading: customAppBarLeading(label: rootLabel),
-      backgroundColor: Colors.transparent,
-      scrolledUnderElevation: 0,
-      systemOverlayStyle: mainPageThemeNotifier.value == .dark ? .light : .dark,
-      actions: [
-        ValueListenableBuilder(
-          valueListenable: currentSongListNotifier,
-          builder: (context, value, child) {
-            return MySearchField(
-              key: ValueKey(getFirstSong(songList)),
-              hintText: AppLocalizations.of(context).searchSongs,
-              textController: textController,
-              useCurrentSong: false,
-            );
-          },
-        ),
-        selectButton(context),
-        if (!isRanking && !isRecently) sortButton(context),
-        if (playlist != null && playlist!.isNotFavorite) deleteButton(context),
-        moreButton(context),
-      ],
-    );
+    final actions = <Widget>[
+      ValueListenableBuilder(
+        valueListenable: currentSongListNotifier,
+        builder: (context, value, child) {
+          return MySearchField(
+            key: ValueKey(getFirstSong(songList)),
+            hintText: AppLocalizations.of(context).searchSongs,
+            textController: textController,
+            useCurrentSong: false,
+          );
+        },
+      ),
+      selectButton(context),
+      if (!isRanking && !isRecently) sortButton(context),
+      if (playlist != null && playlist!.isNotFavorite) deleteButton(context),
+      moreButton(context),
+    ];
+
+    // a root tab (songs / ranking / recently / a root playlist) is not
+    // somewhere you go back from, so it must not render a back arrow
+    return widget.isRoot
+        ? MyAppBar(actions: actions)
+        : MyAppBar.detail(backLabel: rootLabel, actions: actions);
   }
 
   Widget selectButton(BuildContext context) {

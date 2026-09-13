@@ -36,8 +36,11 @@ extension _CollectionListPanel on CollectionListState {
                   return ImageIcon(image, size: 50, color: value);
                 },
               ),
+              // the landscape panel is the page itself (there is no tab bar
+              // here to say which collection this is), so it names the layer
+              // instead of repeating the portrait app title
               title: Text(
-                'MyMusic',
+                title,
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               subtitle: ValueListenableBuilder(

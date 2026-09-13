@@ -33,9 +33,10 @@ extension FoldersPanel on FoldersLayer {
                     return ImageIcon(folderImage, size: 50, color: value);
                   },
                 ),
+                // see collection_list_panel: landscape names the collection
                 title: Text(
                   l10n.folders,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 subtitle: Text(
                   l10n.folderCount(library.folderList.length),

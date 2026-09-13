@@ -16,12 +16,8 @@ extension _LicensePage on _LicenseLayerState {
   }
 
   PreferredSizeWidget customAppBar(BuildContext context) {
-    return AppBar(
-      automaticallyImplyLeading: false,
-      leading: customAppBarLeading(label: 'settings'),
-      backgroundColor: Colors.transparent,
-      systemOverlayStyle: mainPageThemeNotifier.value == .dark ? .light : .dark,
-      scrolledUnderElevation: 0,
+    return MyAppBar.detail(
+      backLabel: 'settings',
       actions: [
         MySearchField(
           hintText: AppLocalizations.of(context).searchLicenses,

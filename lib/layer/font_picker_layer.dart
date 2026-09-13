@@ -18,7 +18,7 @@ import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/landscape_view/title_bar.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
 import 'package:sylvakru/layer/settings_layer.dart';
-import 'package:sylvakru/portrait_view/custom_appbar_leading.dart';
+import 'package:sylvakru/portrait_view/my_app_bar.dart';
 import 'package:sylvakru/portrait_view/my_search_field.dart';
 
 part '../portrait_view/pages/font_picker_page.dart';

@@ -5,6 +5,7 @@ import 'package:sylvakru/base/widgets/settings_list.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/landscape_view/title_bar.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
+import 'package:sylvakru/portrait_view/my_app_bar.dart';
 
 part '../portrait_view/pages/settings_page.dart';
 

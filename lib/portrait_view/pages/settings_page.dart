@@ -23,20 +23,9 @@ class SettingsPage extends StatelessWidget {
         return Scaffold(
           backgroundColor: Colors.transparent,
           resizeToAvoidBottomInset: false,
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded),
-              onPressed: _leaveSettings,
-            ),
-            backgroundColor: Colors.transparent,
-            systemOverlayStyle: mainPageThemeNotifier.value == .dark
-                ? .light
-                : .dark,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            title: Text(AppLocalizations.of(context).settings),
-            centerTitle: true,
+          appBar: MyAppBar.detail(
+            onBack: _leaveSettings,
+            title: AppLocalizations.of(context).settings,
           ),
           body: SettingsList(iconSize: 30),
         );

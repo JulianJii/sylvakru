@@ -5,18 +5,7 @@ extension _CollectionListPage on CollectionListState {
     return Scaffold(
       backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.transparent,
-        systemOverlayStyle: mainPageThemeNotifier.value == .dark
-            ? .light
-            : .dark,
-        scrolledUnderElevation: 0,
-        title: Text(
-          'MyMusic',
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: false,
+      appBar: MyAppBar(
         actions: [
           searchField(searchHint),
           ListenableBuilder(

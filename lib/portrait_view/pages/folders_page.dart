@@ -2,22 +2,10 @@ part of '../../layer/folders_layer.dart';
 
 extension FoldersPage on FoldersLayer {
   Widget pageView(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.transparent,
-        systemOverlayStyle: mainPageThemeNotifier.value == .dark
-            ? .light
-            : .dark,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(l10n.folders),
-        centerTitle: true,
-      ),
+      appBar: const MyAppBar(),
       body: Column(
         children: [
           const RootTabBar(),

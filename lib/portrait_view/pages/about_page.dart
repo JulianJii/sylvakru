@@ -16,14 +16,9 @@ extension _AboutPage on _AboutLayerState {
   }
 
   PreferredSizeWidget customAppBar(BuildContext context) {
-    return AppBar(
-      automaticallyImplyLeading: false,
-      leading: customAppBarLeading(label: 'settings'),
-      backgroundColor: Colors.transparent,
-      systemOverlayStyle: mainPageThemeNotifier.value == .dark ? .light : .dark,
-      scrolledUnderElevation: 0,
-      title: Text(AppLocalizations.of(context).about),
-      centerTitle: true,
+    return MyAppBar.detail(
+      backLabel: 'settings',
+      title: AppLocalizations.of(context).about,
     );
   }
 }
