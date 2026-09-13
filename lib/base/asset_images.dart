@@ -26,9 +26,6 @@ const AssetImage fullscreenExitImage = AssetImage(
   'assets/images/fullscreen_exit.png',
 );
 const AssetImage fullscreenImage = AssetImage('assets/images/fullscreen.png');
-const AssetImage futurePremiumImage = AssetImage(
-  'assets/images/futurePremium.png',
-);
 const AssetImage gridImage = AssetImage('assets/images/grid.png');
 const AssetImage iconImage = AssetImage('assets/images/icon.png');
 const AssetImage infoImage = AssetImage('assets/images/info.png');
@@ -64,7 +61,6 @@ const AssetImage playOutlinedImage = AssetImage(
 const AssetImage playQueueImage = AssetImage('assets/images/play_queue.png');
 const AssetImage playlistsImage = AssetImage('assets/images/playlists.png');
 const AssetImage powerOffImage = AssetImage('assets/images/power_off.png');
-const AssetImage premiumImage = AssetImage('assets/images/premium.png');
 const AssetImage previousButtonImage = AssetImage(
   'assets/images/previous_button.png',
 );

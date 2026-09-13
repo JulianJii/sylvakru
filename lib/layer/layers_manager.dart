@@ -19,7 +19,6 @@ import 'package:sylvakru/layer/folders_layer.dart';
 import 'package:sylvakru/layer/font_picker_layer.dart';
 import 'package:sylvakru/layer/license_layer.dart';
 import 'package:sylvakru/layer/playlists_layer.dart';
-import 'package:sylvakru/layer/premium_layer.dart';
 import 'package:sylvakru/layer/ranking_layer.dart';
 import 'package:sylvakru/layer/recently_layer.dart';
 import 'package:sylvakru/layer/settings_layer.dart';
@@ -299,8 +298,6 @@ class LayersManager {
       } else if (detail == 'license') {
         visibleNotifier = aboutVisibleNotifier;
         detailLayer = LicenseLayer();
-      } else if (detail == 'premium') {
-        detailLayer = PremiumLayer();
       } else {
         detailLayer = FontPickerLayer();
       }

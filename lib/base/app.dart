@@ -35,8 +35,6 @@ final ValueNotifier<String?> fontFamilyNotifier = ValueNotifier(null);
 
 final List<String> importedFonts = [];
 
-final isPremiumNotifier = ValueNotifier(true);
-
 enum ViewMode { normal, mini, bigPicture }
 
 final viewModeNotifier = ValueNotifier(ViewMode.normal);

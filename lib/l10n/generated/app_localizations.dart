@@ -1118,120 +1118,6 @@ abstract class AppLocalizations {
   /// **'Get permission failed'**
   String get getPermissionFailed;
 
-  /// No description provided for @premiumFeatures.
-  ///
-  /// In en, this message translates to:
-  /// **'Premium Features'**
-  String get premiumFeatures;
-
-  /// No description provided for @premiumDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Enjoy the full experience and support ongoing development'**
-  String get premiumDescription;
-
-  /// No description provided for @unlockPremium.
-  ///
-  /// In en, this message translates to:
-  /// **'Unlock Premium Features'**
-  String get unlockPremium;
-
-  /// No description provided for @restorePurchase.
-  ///
-  /// In en, this message translates to:
-  /// **'Restore Purchases'**
-  String get restorePurchase;
-
-  /// No description provided for @whatPremiumContains.
-  ///
-  /// In en, this message translates to:
-  /// **'What\'s Included'**
-  String get whatPremiumContains;
-
-  /// No description provided for @themeDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Unlock Vivid Mode for the Main Page'**
-  String get themeDescription;
-
-  /// No description provided for @fontDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Use custom fonts'**
-  String get fontDescription;
-
-  /// No description provided for @equalizerDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Adjust audio levels across different frequencies'**
-  String get equalizerDescription;
-
-  /// No description provided for @futurePremium.
-  ///
-  /// In en, this message translates to:
-  /// **'Future Premium Features'**
-  String get futurePremium;
-
-  /// No description provided for @futurePremiumDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'All future premium features will be unlocked automatically'**
-  String get futurePremiumDescription;
-
-  /// No description provided for @premiumRequiredMessage.
-  ///
-  /// In en, this message translates to:
-  /// **'This feature requires Premium Features to be unlocked before it can be used'**
-  String get premiumRequiredMessage;
-
-  /// No description provided for @premiumUnlockHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Go to Settings > Premium Features to unlock it'**
-  String get premiumUnlockHint;
-
-  /// No description provided for @alreadyPremium.
-  ///
-  /// In en, this message translates to:
-  /// **'Premium features are already unlocked'**
-  String get alreadyPremium;
-
-  /// No description provided for @pendingPurchase.
-  ///
-  /// In en, this message translates to:
-  /// **'Processing your purchase...'**
-  String get pendingPurchase;
-
-  /// No description provided for @purchaseNotFound.
-  ///
-  /// In en, this message translates to:
-  /// **'No purchase records found'**
-  String get purchaseNotFound;
-
-  /// No description provided for @productNotAvailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Unable to load product information. Please check your internet connection and try again'**
-  String get productNotAvailable;
-
-  /// No description provided for @iapNotAvailable.
-  ///
-  /// In en, this message translates to:
-  /// **'In-App Purchases are not available. Please try again later'**
-  String get iapNotAvailable;
-
-  /// No description provided for @connectingToAppStore.
-  ///
-  /// In en, this message translates to:
-  /// **'Connecting to the App Store...'**
-  String get connectingToAppStore;
-
-  /// No description provided for @checkingPurchase.
-  ///
-  /// In en, this message translates to:
-  /// **'Checking purchase history...'**
-  String get checkingPurchase;
-
   /// No description provided for @noLyrics.
   ///
   /// In en, this message translates to:
@@ -1256,41 +1142,11 @@ abstract class AppLocalizations {
   /// **'View Log'**
   String get viewLog;
 
-  /// No description provided for @premiumTrialActive.
-  ///
-  /// In en, this message translates to:
-  /// **'Premium Trial Active'**
-  String get premiumTrialActive;
-
-  /// No description provided for @trialRemainingStatus.
-  ///
-  /// In en, this message translates to:
-  /// **'You have {count} min of Premium access remaining\nPurchase Premium to continue after your trial ends'**
-  String trialRemainingStatus(int count);
-
   /// No description provided for @gotIt.
   ///
   /// In en, this message translates to:
   /// **'Got it'**
   String get gotIt;
-
-  /// No description provided for @trialRemaining.
-  ///
-  /// In en, this message translates to:
-  /// **'Trial Remaining'**
-  String get trialRemaining;
-
-  /// No description provided for @bigPictureMode.
-  ///
-  /// In en, this message translates to:
-  /// **'Big Picture Mode'**
-  String get bigPictureMode;
-
-  /// No description provided for @bigPictureModeDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Unlock Big Picture Mode'**
-  String get bigPictureModeDescription;
 
   /// No description provided for @adjustLyrics.
   ///

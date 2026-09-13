@@ -533,63 +533,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get getPermissionFailed => '获取权限失败';
 
   @override
-  String get premiumFeatures => '高级功能';
-
-  @override
-  String get premiumDescription => '获得更完整的使用体验并支持应用持续开发';
-
-  @override
-  String get unlockPremium => '解锁高级功能';
-
-  @override
-  String get restorePurchase => '恢复购买';
-
-  @override
-  String get whatPremiumContains => '高级功能包含';
-
-  @override
-  String get themeDescription => '支持开启主页面生动模式';
-
-  @override
-  String get fontDescription => '可使用自定义字体';
-
-  @override
-  String get equalizerDescription => '可调节不同频段的音量';
-
-  @override
-  String get futurePremium => '未来高级功能';
-
-  @override
-  String get futurePremiumDescription => '后续新增的高级功能自动解锁';
-
-  @override
-  String get premiumRequiredMessage => '当前功能需要解锁高级功能后才能使用';
-
-  @override
-  String get premiumUnlockHint => '请前往「设置 > 高级功能」进行解锁';
-
-  @override
-  String get alreadyPremium => '已解锁高级功能';
-
-  @override
-  String get pendingPurchase => '正在处理中...';
-
-  @override
-  String get purchaseNotFound => '未发现购买记录';
-
-  @override
-  String get productNotAvailable => '无法获取商品信息，请检查网络连接后重试';
-
-  @override
-  String get iapNotAvailable => '应用内购买功能暂不可用, 请稍后再试';
-
-  @override
-  String get connectingToAppStore => '正在连接 App Store...';
-
-  @override
-  String get checkingPurchase => '正在检查购买记录...';
-
-  @override
   String get noLyrics => '暂无歌词';
 
   @override
@@ -602,24 +545,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get viewLog => '查看日志';
 
   @override
-  String get premiumTrialActive => '高级功能试用已开启';
-
-  @override
-  String trialRemainingStatus(int count) {
-    return '剩余试用时间：$count 分钟\n试用结束后, 购买高级功能即可继续使用';
-  }
-
-  @override
   String get gotIt => '好的';
-
-  @override
-  String get trialRemaining => '剩余试用时间';
-
-  @override
-  String get bigPictureMode => '大图模式';
-
-  @override
-  String get bigPictureModeDescription => '解锁大图模式';
 
   @override
   String get adjustLyrics => '调整歌词';

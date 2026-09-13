@@ -533,70 +533,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get getPermissionFailed => 'Get permission failed';
 
   @override
-  String get premiumFeatures => 'Premium Features';
-
-  @override
-  String get premiumDescription =>
-      'Enjoy the full experience and support ongoing development';
-
-  @override
-  String get unlockPremium => 'Unlock Premium Features';
-
-  @override
-  String get restorePurchase => 'Restore Purchases';
-
-  @override
-  String get whatPremiumContains => 'What\'s Included';
-
-  @override
-  String get themeDescription => 'Unlock Vivid Mode for the Main Page';
-
-  @override
-  String get fontDescription => 'Use custom fonts';
-
-  @override
-  String get equalizerDescription =>
-      'Adjust audio levels across different frequencies';
-
-  @override
-  String get futurePremium => 'Future Premium Features';
-
-  @override
-  String get futurePremiumDescription =>
-      'All future premium features will be unlocked automatically';
-
-  @override
-  String get premiumRequiredMessage =>
-      'This feature requires Premium Features to be unlocked before it can be used';
-
-  @override
-  String get premiumUnlockHint =>
-      'Go to Settings > Premium Features to unlock it';
-
-  @override
-  String get alreadyPremium => 'Premium features are already unlocked';
-
-  @override
-  String get pendingPurchase => 'Processing your purchase...';
-
-  @override
-  String get purchaseNotFound => 'No purchase records found';
-
-  @override
-  String get productNotAvailable =>
-      'Unable to load product information. Please check your internet connection and try again';
-
-  @override
-  String get iapNotAvailable =>
-      'In-App Purchases are not available. Please try again later';
-
-  @override
-  String get connectingToAppStore => 'Connecting to the App Store...';
-
-  @override
-  String get checkingPurchase => 'Checking purchase history...';
-
-  @override
   String get noLyrics => 'There are no lyrics';
 
   @override
@@ -609,24 +545,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewLog => 'View Log';
 
   @override
-  String get premiumTrialActive => 'Premium Trial Active';
-
-  @override
-  String trialRemainingStatus(int count) {
-    return 'You have $count min of Premium access remaining\nPurchase Premium to continue after your trial ends';
-  }
-
-  @override
   String get gotIt => 'Got it';
-
-  @override
-  String get trialRemaining => 'Trial Remaining';
-
-  @override
-  String get bigPictureMode => 'Big Picture Mode';
-
-  @override
-  String get bigPictureModeDescription => 'Unlock Big Picture Mode';
 
   @override
   String get adjustLyrics => 'Adjust Lyrics';

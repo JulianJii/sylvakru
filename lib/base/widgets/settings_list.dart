@@ -27,7 +27,6 @@ import 'package:sylvakru/layer/layers_manager.dart';
 import 'package:sylvakru/base/widgets/manage_music_folders.dart';
 import 'package:sylvakru/base/data/library.dart';
 import 'package:sylvakru/base/data/loader.dart';
-import 'package:sylvakru/layer/premium_layer.dart';
 import 'package:sylvakru/portrait_view/sleep_timer.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/base/widgets/my_switch.dart';
@@ -100,11 +99,6 @@ class _SettingsListState extends State<SettingsList> {
 
         if (isLandscape && viewModeNotifier.value != .bigPicture)
           sliverBox(const SizedBox(height: 10)),
-
-        if (Platform.isIOS && viewModeNotifier.value != .bigPicture)
-          sliverBox(
-            paddingIfNeed(isLandscape, premiumFeaturesListTile(context, l10n)),
-          ),
 
         sliverBox(
           paddingIfNeed(isLandscape, switchSourceTypeListTile(context, l10n)),
@@ -234,32 +228,6 @@ class _SettingsListState extends State<SettingsList> {
       onTap: () {
         showAnimationDialog(context: context, child: ManageMusicFolders());
       },
-    );
-  }
-
-  Widget premiumFeaturesListTile(BuildContext context, AppLocalizations l10n) {
-    return ListTile(
-      leading: ImageIcon(premiumImage, size: iconSize),
-      title: Text(l10n.premiumFeatures),
-      onTap: () {
-        layersManager.pushDetail('settings', 'premium');
-      },
-      trailing: ValueListenableBuilder(
-        valueListenable: trialRemainingMinNotifier,
-        builder: (context, value, child) {
-          if (value <= 0) {
-            return SizedBox.shrink();
-          }
-          return Row(
-            mainAxisSize: .min,
-            children: [
-              Text(
-                "${l10n.trialRemaining}:${formatDuration(Duration(minutes: value), ms: false)}",
-              ),
-            ],
-          );
-        },
-      ),
     );
   }
 
@@ -575,21 +543,8 @@ class _SettingsListState extends State<SettingsList> {
 
       title: Text(l10n.fonts),
       onTap: () {
-        if (!isPremiumNotifier.value) {
-          showPremiumDialog(context);
-          return;
-        }
         layersManager.pushDetail('settings', 'font_picker');
       },
-      trailing: ValueListenableBuilder(
-        valueListenable: isPremiumNotifier,
-        builder: (context, value, child) {
-          if (value) {
-            return SizedBox.shrink();
-          }
-          return Icon(Icons.lock);
-        },
-      ),
     );
   }
 
@@ -638,24 +593,12 @@ class _SettingsListState extends State<SettingsList> {
                                 ListTile(
                                   title: Text(l10n.vividMode),
                                   onTap: () {
-                                    if (!isPremiumNotifier.value) {
-                                      showPremiumDialog(context);
-                                      return;
-                                    }
                                     mainPageThemeNotifier.value = .vivid;
                                     updateHoverFocusColor();
                                   },
-                                  trailing: ValueListenableBuilder(
-                                    valueListenable: isPremiumNotifier,
-                                    builder: (context, isPremium, child) {
-                                      if (!isPremium) {
-                                        return Icon(Icons.lock);
-                                      }
-                                      return value == .vivid
-                                          ? Icon(Icons.check)
-                                          : SizedBox.shrink();
-                                    },
-                                  ),
+                                  trailing: value == .vivid
+                                      ? Icon(Icons.check)
+                                      : SizedBox.shrink(),
                                 ),
                                 ListTile(
                                   title: Text(l10n.lightMode),
@@ -743,10 +686,6 @@ class _SettingsListState extends State<SettingsList> {
       leading: ImageIcon(equalizerImage, size: iconSize),
       title: Text(l10n.equalizer),
       onTap: () {
-        if (!isPremiumNotifier.value) {
-          showPremiumDialog(context);
-          return;
-        }
         showAnimationDialog(
           context: context,
           child: OrientationBuilder(
@@ -772,15 +711,6 @@ class _SettingsListState extends State<SettingsList> {
           ),
         );
       },
-      trailing: ValueListenableBuilder(
-        valueListenable: isPremiumNotifier,
-        builder: (context, value, child) {
-          if (value) {
-            return SizedBox.shrink();
-          }
-          return Icon(Icons.lock);
-        },
-      ),
     );
   }
 

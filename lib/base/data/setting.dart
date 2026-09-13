@@ -71,18 +71,12 @@ class Setting {
     autoPlayOnStartupNotifier.value =
         json['autoPlayOnStartup'] as bool? ?? false;
 
-    if (isPremiumNotifier.value) {
-      fontFamilyNotifier.value = json['fontFamily'] as String?;
-    }
+    fontFamilyNotifier.value = json['fontFamily'] as String?;
 
     mainPageThemeNotifier.value = ThemeType.values.firstWhere(
       (e) => e.name == json['mainPageTheme'],
       orElse: () => ThemeType.vivid,
     );
-
-    if (!isPremiumNotifier.value && mainPageThemeNotifier.value == .vivid) {
-      mainPageThemeNotifier.value = .light;
-    }
 
     updateHoverFocusColor();
 
