@@ -50,6 +50,16 @@ android {
         }
     }
 
+    // 压缩 lib/**/*.so：minSdk >= 23 时 AGP 默认不压缩（page-aligned STORED），
+    // 7 个 native 库占了 51.05MB。开启后 arm64 APK 约 53.6MB -> 27MB（GitHub 直发场景更看重下载体积）。
+    // 代价：安装时 .so 会被解压到 /data，设备占用从约 53MB 升到约 78MB。
+    // 若改走 Google Play AAB（Play 自行按 ABI 拆分压缩），这里应改回 false。
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     configurations.all {
         resolutionStrategy {
             force("androidx.appcompat:appcompat:1.6.1")
