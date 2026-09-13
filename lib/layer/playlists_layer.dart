@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/data/playlist.dart';
 import 'package:sylvakru/base/data/setting.dart';
 import 'package:sylvakru/base/widgets/collection_list.dart';
+import 'package:sylvakru/base/widgets/playlist_widgets.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
 import 'package:sylvakru/base/asset_images.dart';
@@ -84,5 +85,14 @@ class _PlaylistsLayerState extends CollectionListState {
       currentTextList[0] = l10n.favorites;
     }
     return super.build(context);
+  }
+
+  @override
+  Widget floatingActionButton(BuildContext context) {
+    // lift above the global PlayBar (bottom: 40, height: 50)
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 96),
+      child: createPlaylistFab(context),
+    );
   }
 }

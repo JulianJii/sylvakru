@@ -29,6 +29,7 @@ import 'package:sylvakru/big_picture_view/panels/big_settings_panel.dart';
 import 'package:sylvakru/big_picture_view/panels/big_songs_panel.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
+import 'package:sylvakru/base/widgets/playlist_widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
 class BigPictureView extends StatefulWidget {
@@ -145,6 +146,20 @@ class _BigPictureViewState extends State<BigPictureView> {
 
             topBar(context),
             bottomBar(context),
+            ValueListenableBuilder(
+              valueListenable: _currentIndexNotifier,
+              builder: (context, index, _) {
+                // playlists page is index 7 in [pages]
+                if (index != 7) {
+                  return const SizedBox.shrink();
+                }
+                return Positioned(
+                  right: 30,
+                  bottom: 110,
+                  child: createPlaylistFab(context),
+                );
+              },
+            ),
           ],
         );
       },

@@ -111,6 +111,37 @@ Future<bool> showCreatePlaylistDialog(BuildContext context) async {
   return false;
 }
 
+Widget createPlaylistFab(BuildContext context) {
+  final l10n = AppLocalizations.of(context);
+
+  return Tooltip(
+    message: l10n.createPlaylist,
+    child: GestureDetector(
+      onTap: () async {
+        await showCreatePlaylistDialog(context);
+      },
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: buttonColor.value,
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(
+          child: ImageIcon(addImage, color: iconColor.value, size: 28),
+        ),
+      ),
+    ),
+  );
+}
+
 void showAddPlaylistDialog(
   BuildContext context,
   List<MyAudioMetadata> songList,

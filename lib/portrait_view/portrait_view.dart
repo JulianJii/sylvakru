@@ -15,9 +15,10 @@ class PortraitView extends StatefulWidget {
 class _PortraitViewState extends State<PortraitView>
     with SingleTickerProviderStateMixin {
   // keep tab highlight in sync with switches triggered elsewhere,
-  // e.g. removing the current playlist falls back to songs
+  // e.g. removing the current playlist falls back to songs,
+  // and with the selected tab being dragged to another position
   void syncTabFromManager() {
-    final index = rootLayerLabels.indexOf(sidebarHighlighLabel.value);
+    final index = rootTabIndexOf(sidebarHighlighLabel.value);
     if (index < 0 || rootTabController.index == index) {
       return;
     }
@@ -28,13 +29,14 @@ class _PortraitViewState extends State<PortraitView>
   void initState() {
     super.initState();
 
-    final index = rootLayerLabels.indexOf(sidebarHighlighLabel.value);
+    final index = rootTabIndexOf(sidebarHighlighLabel.value);
     rootTabController = TabController(
       length: rootLayerLabels.length,
       vsync: this,
       initialIndex: index < 0 ? 0 : index,
     );
     layersManager.switchNotifier.addListener(syncTabFromManager);
+    rootTabOrderNotifier.addListener(syncTabFromManager);
 
     if (index < 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -46,6 +48,7 @@ class _PortraitViewState extends State<PortraitView>
   @override
   void dispose() {
     layersManager.switchNotifier.removeListener(syncTabFromManager);
+    rootTabOrderNotifier.removeListener(syncTabFromManager);
     rootTabController.dispose();
     super.dispose();
   }

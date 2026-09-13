@@ -44,7 +44,6 @@ import 'package:sylvakru/layer/recently_layer.dart';
 import 'package:sylvakru/portrait_view/custom_appbar_leading.dart';
 import 'package:sylvakru/portrait_view/my_search_field.dart';
 import 'package:sylvakru/portrait_view/root_tab_bar.dart';
-import 'package:text_scroll/text_scroll.dart';
 
 part '../../landscape_view/panels/song_list_panel.dart';
 part '../../portrait_view/pages/song_list_page.dart';
@@ -140,6 +139,15 @@ class _SongListState extends State<SongList> {
   }
 
   bool get isFixed => isMobile || !reorderable;
+
+  // anchor point for popup menus opened from toolbar icon buttons
+  Offset menuAnchor(BuildContext context) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) {
+      return Offset.zero;
+    }
+    return box.localToGlobal(box.size.bottomRight(Offset.zero));
+  }
 
   void updateHideOthers() {
     setState(() {

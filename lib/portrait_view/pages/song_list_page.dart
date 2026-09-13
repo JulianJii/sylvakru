@@ -35,8 +35,136 @@ extension _SongListPage on _SongListState {
             );
           },
         ),
+        selectButton(context),
+        if (!isRanking && !isRecently) sortButton(context),
+        if (playlist != null && playlist!.isNotFavorite) deleteButton(context),
         moreButton(context),
       ],
+    );
+  }
+
+  Widget selectButton(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return IconButton(
+      tooltip: l10n.select,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      icon: ImageIcon(selectImage),
+      onPressed: () {
+        tryVibrate();
+
+        for (var e in isSelectedNotifierMap.values) {
+          e.value = false;
+        }
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ValueListenableBuilder(
+              valueListenable: currentSongListNotifier,
+              builder: (context, currentSongList, child) {
+                return SelectableSongListPage(
+                  songList: currentSongList,
+                  playlist: playlist,
+                  folder: folder,
+                  isRanking: isRanking,
+                  isRecently: isRecently,
+                  isLibrary: isLibrary,
+                  reorderable: reorderable,
+                  isSelectedNotifierMap: isSelectedNotifierMap,
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget deleteButton(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return IconButton(
+      tooltip: l10n.delete,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      icon: ImageIcon(deleteImage),
+      onPressed: () async {
+        tryVibrate();
+
+        if (await showConfirmDialog(context, l10n.delete)) {
+          layersManager.removeLayerIfNeed(playlist!);
+          playlistManager.deletePlaylist(playlist!);
+        }
+      },
+    );
+  }
+
+  Widget sortButton(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Builder(
+      builder: (buttonContext) {
+        return IconButton(
+          tooltip: l10n.sortSongs,
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          icon: ImageIcon(sequenceImage),
+          onPressed: () {
+            tryVibrate();
+
+            List<String> orderText = [
+              l10n.defaultText,
+              l10n.titleAscending,
+              l10n.titleDescending,
+              l10n.artistAscending,
+              l10n.artistDescending,
+              l10n.albumAscending,
+              l10n.albumDescending,
+              l10n.durationAscending,
+              l10n.durationDescending,
+            ];
+            if (isLibrary && (isNotStreamSource) || folder != null) {
+              orderText.add(l10n.modifiedTimeAscending);
+              orderText.add(l10n.modifiedTimedescending);
+              orderText.add(l10n.randomizeTemp);
+              orderText.add(l10n.randomizePermanent);
+            }
+
+            final items = <MenuItem>[];
+            for (int i = 0; i < orderText.length; i++) {
+              items.add(
+                MenuItem(
+                  iconData: sortTypeNotifier.value == i ? Icons.check : null,
+                  text: orderText[i],
+                  callback: () async {
+                    if (i == 12) {
+                      if (!await showConfirmDialog(
+                        context,
+                        l10n.cannotBeUndone,
+                      )) {
+                        return;
+                      }
+                      sortTypeNotifier.value = 0;
+                      if (isLibrary) {
+                        library.shuffle();
+                      } else {
+                        folder!.shuffle();
+                      }
+                    } else {
+                      if (i == 11 && sortTypeNotifier.value == 11) {
+                        updateSongList();
+                      }
+                      sortTypeNotifier.value = i;
+                    }
+                  },
+                ),
+              );
+            }
+
+            showContextMenu(context, items, menuAnchor(buttonContext));
+          },
+        );
+      },
     );
   }
 
@@ -52,11 +180,7 @@ extension _SongListPage on _SongListState {
           builder: (context) {
             return moreSheet(context);
           },
-        ).then((value) {
-          if (value == true && context.mounted) {
-            Navigator.pop(context);
-          }
-        });
+        );
       },
     );
   }
@@ -65,180 +189,24 @@ extension _SongListPage on _SongListState {
     final l10n = AppLocalizations.of(context);
 
     return MySheet(
-      height: 300,
+      height: 160,
       Column(
         children: [
-          ListTile(
-            title: Row(
-              children: [
-                if (playlist != null)
-                  Text("${l10n.playlists}: ", style: TextStyle(fontSize: 15)),
-                if (artist != null)
-                  Text("${l10n.artists}: ", style: TextStyle(fontSize: 15)),
-                if (album != null)
-                  Text("${l10n.albums}: ", style: TextStyle(fontSize: 15)),
-                if (folder != null)
-                  Text("${l10n.folders}: ", style: TextStyle(fontSize: 15)),
-
-                Expanded(
-                  child: TextScroll(
-                    getTitleText(l10n),
-                    style: TextStyle(fontSize: 15),
-                    velocity: const .new(pixelsPerSecond: .new(40, 0)),
-                    intervalSpaces: 10,
-                    pauseBetween: Duration(seconds: 2),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ListTile(title: Text(l10n.more)),
           MyDivider(thickness: 0.5, height: 1, color: dividerColor),
+
           ListTile(
-            leading: ImageIcon(selectImage),
+            leading: ImageIcon(settingImage),
             title: Text(
-              l10n.select,
+              l10n.settings,
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
             onTap: () {
               Navigator.pop(context);
-              for (var e in isSelectedNotifierMap.values) {
-                e.value = false;
-              }
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ValueListenableBuilder(
-                    valueListenable: currentSongListNotifier,
-                    builder: (context, currentSongList, child) {
-                      return SelectableSongListPage(
-                        songList: currentSongList,
-                        playlist: playlist,
-                        folder: folder,
-                        isRanking: isRanking,
-                        isRecently: isRecently,
-                        isLibrary: isLibrary,
-                        reorderable: reorderable,
-                        isSelectedNotifierMap: isSelectedNotifierMap,
-                      );
-                    },
-                  ),
-                ),
-              );
+              layersManager.switchRootLayer('settings');
             },
           ),
-          if (!isRanking && !isRecently)
-            ListTile(
-              leading: ImageIcon(sequenceImage),
-              title: Text(
-                l10n.sortSongs,
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
-              onTap: () {
-                Navigator.pop(context);
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  useRootNavigator: true,
-                  builder: (context) {
-                    List<String> orderText = [
-                      l10n.defaultText,
-                      l10n.titleAscending,
-                      l10n.titleDescending,
-                      l10n.artistAscending,
-                      l10n.artistDescending,
-                      l10n.albumAscending,
-                      l10n.albumDescending,
-                      l10n.durationAscending,
-                      l10n.durationDescending,
-                    ];
-                    if (isLibrary && (isNotStreamSource) || folder != null) {
-                      orderText.add(l10n.modifiedTimeAscending);
-                      orderText.add(l10n.modifiedTimedescending);
-                      orderText.add(l10n.randomizeTemp);
-                      orderText.add(l10n.randomizePermanent);
-                    }
-                    List<Widget> orderWidget = [];
-                    for (int i = 0; i < orderText.length; i++) {
-                      String text = orderText[i];
-                      orderWidget.add(
-                        ValueListenableBuilder(
-                          valueListenable: sortTypeNotifier,
-                          builder: (context, value, child) {
-                            return ListTile(
-                              title: Text(text),
-                              onTap: () async {
-                                if (i == 12) {
-                                  if (!await showConfirmDialog(
-                                    context,
-                                    l10n.cannotBeUndone,
-                                  )) {
-                                    return;
-                                  }
-                                  sortTypeNotifier.value = 0;
-                                  if (isLibrary) {
-                                    library.shuffle();
-                                  } else {
-                                    folder!.shuffle();
-                                  }
-                                } else {
-                                  if (i == 11 && sortTypeNotifier.value == 11) {
-                                    updateSongList();
-                                  }
-                                  sortTypeNotifier.value = i;
-                                }
-                              },
-                              trailing: value == i ? Icon(Icons.check) : null,
-                              visualDensity: VisualDensity(
-                                horizontal: 0,
-                                vertical: -4,
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    }
-                    return MySheet(
-                      Column(
-                        children: [
-                          ListTile(title: Text(l10n.selectSortingType)),
-                          MyDivider(
-                            thickness: 0.5,
-                            height: 1,
-                            color: dividerColor,
-                          ),
-
-                          Expanded(
-                            child: ListView(
-                              children: [...orderWidget, SizedBox(height: 50)],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-
-          if (playlist != null && playlist!.isNotFavorite)
-            ListTile(
-              leading: ImageIcon(deleteImage),
-              title: Text(
-                l10n.delete,
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
-              onTap: () async {
-                if (await showConfirmDialog(context, l10n.delete)) {
-                  layersManager.removeLayerIfNeed(playlist!);
-                  playlistManager.deletePlaylist(playlist!);
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                  }
-                }
-              },
-            ),
         ],
       ),
     );

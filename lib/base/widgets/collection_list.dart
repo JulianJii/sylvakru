@@ -13,6 +13,7 @@ import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/asset_images.dart';
 import 'package:sylvakru/base/widgets/my_divider.dart';
 import 'package:sylvakru/base/widgets/my_switch.dart';
+import 'package:sylvakru/layer/layers_manager.dart';
 import 'package:sylvakru/portrait_view/my_search_field.dart';
 import 'package:sylvakru/portrait_view/root_tab_bar.dart';
 
@@ -47,6 +48,9 @@ abstract class CollectionListState extends State<CollectionList> {
   String title = '';
   String searchHint = '';
 
+  // optional floating action button (e.g. add playlist); null by default
+  Widget? floatingActionButton(BuildContext context) => null;
+
   // for hero tag
   String label = '';
 
@@ -77,6 +81,15 @@ abstract class CollectionListState extends State<CollectionList> {
       return;
     }
     updateCurrentList();
+  }
+
+  // anchor point for popup menus opened from toolbar icon buttons
+  Offset menuAnchor(BuildContext context) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) {
+      return Offset.zero;
+    }
+    return box.localToGlobal(box.size.bottomRight(Offset.zero));
   }
 
   @override

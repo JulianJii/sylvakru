@@ -12,9 +12,33 @@ extension _CollectionListPage on CollectionListState {
             ? .light
             : .dark,
         scrolledUnderElevation: 0,
-        title: Text(title),
-        centerTitle: true,
-        actions: [searchField(searchHint), moreButton(context)],
+        title: Text(
+          'MyMusic',
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: false,
+        actions: [
+          searchField(searchHint),
+          ListenableBuilder(
+            listenable: Listenable.merge([
+              isListViewNotifier,
+              useLargePictureNotifier,
+            ]),
+            builder: (context, child) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isListViewNotifier != null) viewButton(context),
+                  if (!(isListViewNotifier?.value ?? false))
+                    pictureSizeButton(context),
+                  if (randomizeNotifier != null || isAscendingNotifier != null)
+                    sortButton(context),
+                ],
+              );
+            },
+          ),
+          moreButton(context),
+        ],
       ),
       body: Column(
         children: [
@@ -36,6 +60,7 @@ extension _CollectionListPage on CollectionListState {
           ),
         ],
       ),
+      floatingActionButton: floatingActionButton(context),
     );
   }
 
@@ -44,6 +69,106 @@ extension _CollectionListPage on CollectionListState {
       hintText: hintText,
       textController: textController,
       onSearchTextChanged: updateCurrentList,
+    );
+  }
+
+  Widget viewButton(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return IconButton(
+      tooltip: l10n.view,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      icon: ImageIcon(isListViewNotifier!.value ? listImage : gridImage),
+      onPressed: () {
+        tryVibrate();
+        isListViewNotifier!.value = !isListViewNotifier!.value;
+        setting.save();
+      },
+    );
+  }
+
+  Widget pictureSizeButton(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return IconButton(
+      tooltip: l10n.pictureSize,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      icon: ImageIcon(pictureImage),
+      onPressed: () {
+        tryVibrate();
+        useLargePictureNotifier.value = !useLargePictureNotifier.value;
+        setting.save();
+      },
+    );
+  }
+
+  Widget sortButton(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Builder(
+      builder: (buttonContext) {
+        return IconButton(
+          tooltip: l10n.order,
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          icon: ImageIcon(sequenceImage),
+          onPressed: () {
+            tryVibrate();
+
+            final items = <MenuItem>[];
+
+            if (randomizeNotifier != null) {
+              items.add(
+                MenuItem(
+                  iconData: Icons.shuffle_rounded,
+                  text: l10n.randomize,
+                  callback: () {
+                    if (randomizeNotifier!.value) {
+                      return;
+                    }
+                    randomizeNotifier!.value = true;
+                    updateCurrentList();
+                  },
+                ),
+              );
+            }
+
+            if (isAscendingNotifier != null) {
+              void selectAscending(bool value) {
+                final wasRandom = randomizeNotifier?.value ?? false;
+                if (randomizeNotifier != null) {
+                  randomizeNotifier!.value = false;
+                }
+                if (isAscendingNotifier!.value != value) {
+                  isAscendingNotifier!.value = value;
+                } else if (wasRandom) {
+                  updateCurrentList();
+                }
+                setting.save();
+              }
+
+              items.add(
+                MenuItem(
+                  iconData: Icons.arrow_upward_rounded,
+                  text: l10n.ascending,
+                  callback: () => selectAscending(true),
+                ),
+              );
+              items.add(
+                MenuItem(
+                  iconData: Icons.arrow_downward_rounded,
+                  text: l10n.descending,
+                  callback: () => selectAscending(false),
+                ),
+              );
+            }
+
+            showContextMenu(context, items, menuAnchor(buttonContext));
+          },
+        );
+      },
     );
   }
 
@@ -69,116 +194,23 @@ extension _CollectionListPage on CollectionListState {
     final l10n = AppLocalizations.of(context);
 
     return MySheet(
-      height: 300,
+      height: 160,
       Column(
         children: [
-          ListTile(title: Text(l10n.settings)),
+          ListTile(title: Text(l10n.more)),
           MyDivider(thickness: 0.5, height: 1, color: dividerColor),
 
-          Expanded(
-            child: ListView(
-              children: [
-                if (isListViewNotifier != null)
-                  ListTile(
-                    leading: ValueListenableBuilder(
-                      valueListenable: isListViewNotifier!,
-                      builder: (context, value, child) {
-                        return ImageIcon(value ? listImage : gridImage);
-                      },
-                    ),
-                    title: Text(
-                      l10n.view,
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    visualDensity: const VisualDensity(
-                      horizontal: 0,
-                      vertical: -4,
-                    ),
-                    trailing: MySwitch(
-                      trueText: l10n.list,
-                      falseText: l10n.grid,
-                      valueNotifier: isListViewNotifier!,
-                      onToggleCallBack: () {
-                        setting.save();
-                      },
-                    ),
-                  ),
-
-                ListenableBuilder(
-                  listenable: Listenable.merge([isListViewNotifier]),
-                  builder: (context, child) {
-                    if (isListViewNotifier?.value ?? false) {
-                      return SizedBox.shrink();
-                    }
-                    return ListTile(
-                      leading: ImageIcon(pictureImage),
-                      title: Text(
-                        l10n.pictureSize,
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      trailing: MySwitch(
-                        trueText: l10n.large,
-                        falseText: l10n.small,
-                        valueNotifier: useLargePictureNotifier,
-                        onToggleCallBack: () {
-                          setting.save();
-                        },
-                      ),
-                    );
-                  },
-                ),
-
-                if (randomizeNotifier != null)
-                  ListTile(
-                    leading: ImageIcon(sequenceImage),
-                    title: Text(
-                      l10n.order,
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    visualDensity: const VisualDensity(
-                      horizontal: 0,
-                      vertical: -4,
-                    ),
-                    trailing: MySwitch(
-                      trueText: l10n.randomize,
-                      falseText: l10n.normal,
-                      valueNotifier: randomizeNotifier!,
-                      onToggleCallBack: () {
-                        updateCurrentList();
-                      },
-                    ),
-                  ),
-
-                ListenableBuilder(
-                  listenable: Listenable.merge([
-                    isAscendingNotifier,
-                    randomizeNotifier,
-                  ]),
-                  builder: (_, _) {
-                    if (isAscendingNotifier == null) {
-                      return SizedBox();
-                    }
-                    if (randomizeNotifier?.value ?? false) {
-                      return SizedBox();
-                    }
-                    return ListTile(
-                      visualDensity: const VisualDensity(
-                        horizontal: 0,
-                        vertical: -4,
-                      ),
-                      trailing: MySwitch(
-                        trueText: l10n.ascending,
-                        falseText: l10n.descending,
-                        valueNotifier: isAscendingNotifier!,
-                        onToggleCallBack: () {
-                          setting.save();
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ],
+          ListTile(
+            leading: ImageIcon(settingImage),
+            title: Text(
+              l10n.settings,
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
+            visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
+            onTap: () {
+              Navigator.pop(context);
+              layersManager.switchRootLayer('settings');
+            },
           ),
         ],
       ),

@@ -37,8 +37,8 @@ extension _CollectionListPanel on CollectionListState {
                 },
               ),
               title: Text(
-                title,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                'MyMusic',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               subtitle: ValueListenableBuilder(
                 valueListenable: changeNotifier,
