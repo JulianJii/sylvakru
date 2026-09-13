@@ -75,10 +75,25 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
     return ValueListenableBuilder(
       valueListenable: currentSongNotifier,
       builder: (context, currentSong, child) {
-        final coverArtSize = min(
+        // 横向播放页左侧：封面 + 标题信息 + 播放控件需整体放进可用高度，
+        // 否则在较矮的窗口/屏幕上左侧 Column 会底部溢出。这里按下方实际占用
+        // 高度给封面留余量，把封面上限从「可用高度」里扣掉 chrome 后再取最小。
+        double coverArtSize = min(
           pageWidth * (isMobile ? 0.35 : 0.3),
           pageHight * (isMobile ? 0.7 : 0.6),
         );
+        if (pageHight >= 600) {
+          final infoHeight =
+              pageHight * 0.02 + 64; // 标题 + 歌手/专辑两行 + 上下间距
+          final controlsHeight =
+              20 + // 进度条
+              (35 + 16) + // 播放/暂停按钮(含默认内边距)
+              (isMobile ? 0 : 10) + // 音量条(桌面端)
+              pageHight * 0.02; // 控件底部间距
+          final reserved =
+              75 + infoHeight + controlsHeight + 16; // 75=顶部标题栏占位, 16=安全余量
+          coverArtSize = min(coverArtSize, max(0, pageHight - reserved));
+        }
 
         return Material(
           color: Colors.transparent,

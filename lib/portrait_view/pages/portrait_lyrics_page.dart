@@ -27,6 +27,12 @@ import 'package:sylvakru/base/utils/metadata_utils.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 import 'package:text_scroll/text_scroll.dart';
 
+/// 封面在播放页中的状态：
+/// - expanded：封面正常展开，占据歌曲信息下方的大块区域；
+/// - floating：封面已收起到左上角，作为小图标浮在歌词之上；
+/// - expanding：正向原位飞回，动画结束后回到 expanded。
+enum _CoverArtFloatState { expanded, floating, expanding }
+
 class PortraitLyricsPage extends StatefulWidget {
   const PortraitLyricsPage({super.key});
 
@@ -46,6 +52,19 @@ class _PortraitLyricsPageState extends State<PortraitLyricsPage> {
   Timer? concealRouteTimer;
 
   final enableAllNotifier = ValueNotifier(Platform.isAndroid ? false : true);
+
+  static const coverArtFloatDuration = Duration(milliseconds: 320);
+
+  /// 收起后左上角小封面的边长。
+  static const floatingCoverArtSize = 48.0;
+
+  final coverArtFloatNotifier = ValueNotifier(_CoverArtFloatState.expanded);
+
+  /// 用于测量封面展开时所占的位置。
+  final artCoverKey = GlobalKey();
+
+  /// 封面展开时的矩形（全局坐标），收起与还原动画的起点/终点。
+  Rect coverArtRect = Rect.zero;
 
   @override
   void initState() {
@@ -272,6 +291,7 @@ class _PortraitLyricsPageState extends State<PortraitLyricsPage> {
                     ],
                   ),
                 ),
+                Positioned.fill(child: floatingCoverArt(currentSong)),
               ],
             ),
           ),
@@ -285,24 +305,7 @@ class _PortraitLyricsPageState extends State<PortraitLyricsPage> {
 
     return Column(
       children: [
-        Hero(
-          tag: 'cover',
-          flightShuttleBuilder:
-              (
-                flightContext,
-                animation,
-                flightDirection,
-                fromHeroContext,
-                toHeroContext,
-              ) => FittedBox(child: toHeroContext.widget),
-          child: CoverArtWidget(
-            size: mobileWidth * 0.84,
-            borderRadius: mobileWidth * 0.04,
-            picture: currentSong?.picture,
-            elevation: 15,
-            color: colorManager.getSpecificLyricsPageCoverArtBaseColor(),
-          ),
-        ),
+        coverArtSlot(currentSong, mobileWidth),
 
         const SizedBox(height: 30),
 
@@ -397,6 +400,169 @@ class _PortraitLyricsPageState extends State<PortraitLyricsPage> {
 
         SizedBox(height: 40),
       ],
+    );
+  }
+
+  Rect? measureArtCoverRect() {
+    final renderObject = artCoverKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return null;
+    }
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
+  void toggleCoverArtFloat() {
+    tryVibrate();
+
+    if (coverArtFloatNotifier.value == _CoverArtFloatState.expanded) {
+      final rect = measureArtCoverRect();
+      if (rect == null || rect.isEmpty) {
+        return;
+      }
+      coverArtRect = rect;
+      coverArtFloatNotifier.value = _CoverArtFloatState.floating;
+      return;
+    }
+
+    if (coverArtFloatNotifier.value == _CoverArtFloatState.floating) {
+      // 还原前重新测量一次，兼容旋转 / 窗口尺寸变化。
+      final rect = measureArtCoverRect();
+      if (rect != null && !rect.isEmpty) {
+        coverArtRect = rect;
+      }
+      coverArtFloatNotifier.value = _CoverArtFloatState.expanding;
+    }
+  }
+
+  /// 封面槽位：展开时占满高度，收起到左上角时把高度压成 0，把空间让给歌词。
+  Widget coverArtSlot(MyAudioMetadata? currentSong, double mobileWidth) {
+    return ValueListenableBuilder(
+      valueListenable: coverArtFloatNotifier,
+      builder: (context, state, child) {
+        final slotExpanded = state != _CoverArtFloatState.floating;
+        return TweenAnimationBuilder<double>(
+          // begin 只用于首帧初始化：展开态必须是 1，否则每次进页面封面都会自己撑开一次。
+          // 后续目标值变化时 begin 会被自动改写成当前值，这里只关心 end。
+          tween: Tween<double>(begin: 1.0, end: slotExpanded ? 1.0 : 0.0),
+          duration: coverArtFloatDuration,
+          curve: Curves.easeInOutCubic,
+          builder: (context, factor, child) {
+            // Align 用 topCenter + heightFactor：只压缩高度，不改动封面的水平居中与
+            // 垂直锚点，这样收起前后测量到的全局位置保持一致。
+            return ClipRect(
+              child: Align(
+                alignment: Alignment.topCenter,
+                heightFactor: factor,
+                child: child,
+              ),
+            );
+          },
+          child: Opacity(
+            // 收起/还原过程中封面由浮层绘制，原位这份先藏起来。
+            opacity: state == _CoverArtFloatState.expanded ? 1 : 0,
+            child: artCover(currentSong, mobileWidth),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget artCover(MyAudioMetadata? currentSong, double mobileWidth) {
+    return Hero(
+      tag: 'cover',
+      flightShuttleBuilder:
+          (
+            flightContext,
+            animation,
+            flightDirection,
+            fromHeroContext,
+            toHeroContext,
+          ) => FittedBox(child: toHeroContext.widget),
+      child: GestureDetector(
+        key: artCoverKey,
+        behavior: HitTestBehavior.opaque,
+        onTap: toggleCoverArtFloat,
+        child: CoverArtWidget(
+          size: mobileWidth * 0.84,
+          borderRadius: mobileWidth * 0.04,
+          picture: currentSong?.picture,
+          elevation: 15,
+          color: colorManager.getSpecificLyricsPageCoverArtBaseColor(),
+        ),
+      ),
+    );
+  }
+
+  /// 浮动在歌词之上的封面浮层：负责收起 / 还原的飞行动画。
+  Widget floatingCoverArt(MyAudioMetadata? currentSong) {
+    return ValueListenableBuilder(
+      valueListenable: coverArtFloatNotifier,
+      builder: (context, state, child) {
+        if (state == _CoverArtFloatState.expanded || coverArtRect.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        // 目标位置：贴住歌词区域左上角，浮在歌词层级之上。
+        final floatingRect = Rect.fromLTWH(
+          20,
+          coverArtRect.top + 6,
+          floatingCoverArtSize,
+          floatingCoverArtSize,
+        );
+        final flyingToCorner = state == _CoverArtFloatState.floating;
+
+        return TweenAnimationBuilder<Rect?>(
+          tween: RectTween(
+            begin: flyingToCorner ? coverArtRect : floatingRect,
+            end: flyingToCorner ? floatingRect : coverArtRect,
+          ),
+          duration: coverArtFloatDuration,
+          curve: Curves.easeInOutCubic,
+          onEnd: () {
+            // 飞回原位结束后，把绘制权交还回原位那份封面。
+            if (coverArtFloatNotifier.value == _CoverArtFloatState.expanding) {
+              coverArtFloatNotifier.value = _CoverArtFloatState.expanded;
+            }
+          },
+          builder: (context, rect, child) {
+            if (rect == null) {
+              return const SizedBox.shrink();
+            }
+            return Stack(
+              children: [
+                Positioned.fromRect(
+                  rect: rect,
+                  child: Material(
+                    elevation: 8,
+                    color: Colors.transparent,
+                    shadowColor: Colors.black54,
+                    shape: SmoothRectangleBorder(
+                      smoothness: 1,
+                      borderRadius: BorderRadius.circular(rect.width * 0.06),
+                    ),
+                    clipBehavior: .antiAlias,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: toggleCoverArtFloat,
+                      child: child,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+          // 固定用展开态的原图尺寸渲染，再交给 FittedBox 缩放，
+          // 避免动画每一帧都换一个 ImageProvider。
+          child: FittedBox(
+            fit: BoxFit.fill,
+            child: CoverArtWidget(
+              size: coverArtRect.width,
+              picture: currentSong?.picture,
+              color: colorManager.getSpecificLyricsPageCoverArtBaseColor(),
+            ),
+          ),
+        );
+      },
     );
   }
 
