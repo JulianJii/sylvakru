@@ -173,47 +173,28 @@ extension _CollectionListPage on CollectionListState {
   }
 
   Widget moreButton(BuildContext context) {
-    return IconButton(
-      icon: Icon(Icons.more_vert),
-      onPressed: () {
-        tryVibrate();
+    final l10n = AppLocalizations.of(context);
 
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          useRootNavigator: true,
-          builder: (context) {
-            return moreSheet(context);
+    return Builder(
+      builder: (buttonContext) {
+        return IconButton(
+          tooltip: l10n.more,
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          icon: Icon(Icons.more_vert),
+          onPressed: () {
+            tryVibrate();
+
+            showContextMenu(context, [
+              MenuItem(
+                iconData: Icons.settings_outlined,
+                text: l10n.settings,
+                callback: () => layersManager.switchRootLayer('settings'),
+              ),
+            ], menuAnchor(buttonContext));
           },
         );
       },
-    );
-  }
-
-  Widget moreSheet(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return MySheet(
-      height: 160,
-      Column(
-        children: [
-          ListTile(title: Text(l10n.more)),
-          MyDivider(thickness: 0.5, height: 1, color: dividerColor),
-
-          ListTile(
-            leading: ImageIcon(settingImage),
-            title: Text(
-              l10n.settings,
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
-            onTap: () {
-              Navigator.pop(context);
-              layersManager.switchRootLayer('settings');
-            },
-          ),
-        ],
-      ),
     );
   }
 

@@ -610,6 +610,7 @@ class NativeMenu {
     await _iconToPng(Icons.shuffle_rounded);
     await _iconToPng(Icons.arrow_upward_rounded);
     await _iconToPng(Icons.arrow_downward_rounded);
+    await _iconToPng(Icons.settings_outlined);
   }
 
   static Future<void> _iconToPng(IconData icon) async {
