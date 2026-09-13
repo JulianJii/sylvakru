@@ -7,7 +7,6 @@ extension _CollectionListPage on CollectionListState {
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        leading: customAppBarLeading(context),
         backgroundColor: Colors.transparent,
         systemOverlayStyle: mainPageThemeNotifier.value == .dark
             ? .light
@@ -17,18 +16,25 @@ extension _CollectionListPage on CollectionListState {
         centerTitle: true,
         actions: [searchField(searchHint), moreButton(context)],
       ),
-      body: ListenableBuilder(
-        listenable: Listenable.merge([isListViewNotifier, changeNotifier]),
-        builder: (context, child) {
-          if (preparing) {
-            return Center(
-              child: CircularProgressIndicator(color: iconColor.value),
-            );
-          }
-          return (isListViewNotifier?.value ?? false)
-              ? listView()
-              : pageGridView();
-        },
+      body: Column(
+        children: [
+          const RootTabBar(),
+          Expanded(
+            child: ListenableBuilder(
+              listenable: Listenable.merge([isListViewNotifier, changeNotifier]),
+              builder: (context, child) {
+                if (preparing) {
+                  return Center(
+                    child: CircularProgressIndicator(color: iconColor.value),
+                  );
+                }
+                return (isListViewNotifier?.value ?? false)
+                    ? listView()
+                    : pageGridView();
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

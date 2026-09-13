@@ -9,6 +9,7 @@ extension _SongListPage on _SongListState {
       body: Column(
         children: [
           customAppBar(context),
+          if (widget.isRoot && playlist == null) const RootTabBar(),
           Expanded(child: contentWithStack()),
         ],
       ),
@@ -18,7 +19,7 @@ extension _SongListPage on _SongListState {
   PreferredSizeWidget customAppBar(BuildContext context) {
     return AppBar(
       automaticallyImplyLeading: false,
-      leading: customAppBarLeading(context, label: rootLabel),
+      leading: customAppBarLeading(label: rootLabel),
       backgroundColor: Colors.transparent,
       scrolledUnderElevation: 0,
       systemOverlayStyle: mainPageThemeNotifier.value == .dark ? .light : .dark,

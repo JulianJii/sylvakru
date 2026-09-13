@@ -51,7 +51,7 @@ class _PremiumLayerState extends State<PremiumLayer> {
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          leading: customAppBarLeading(context, label: 'settings'),
+          leading: customAppBarLeading(label: 'settings'),
           backgroundColor: Colors.transparent,
           systemOverlayStyle: mainPageThemeNotifier.value == .dark
               ? .light

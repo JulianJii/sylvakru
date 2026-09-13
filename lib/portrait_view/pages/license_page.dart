@@ -18,7 +18,7 @@ extension _LicensePage on _LicenseLayerState {
   PreferredSizeWidget customAppBar(BuildContext context) {
     return AppBar(
       automaticallyImplyLeading: false,
-      leading: customAppBarLeading(context, label: 'settings'),
+      leading: customAppBarLeading(label: 'settings'),
       backgroundColor: Colors.transparent,
       systemOverlayStyle: mainPageThemeNotifier.value == .dark ? .light : .dark,
       scrolledUnderElevation: 0,

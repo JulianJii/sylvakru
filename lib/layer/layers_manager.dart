@@ -56,7 +56,6 @@ class LayersManager {
   Widget? topRootLayer;
 
   Widget? topRootPage;
-  Widget? bottomRootPage;
 
   final backgroundChangeNotifier = ValueNotifier(0);
   final switchNotifier = ValueNotifier(0);
@@ -155,13 +154,10 @@ class LayersManager {
     }
 
     topRootLayer = layer;
-    if (isMobile) {
-      bottomRootPage = topRootPage;
-      topRootPage = rootPageMap.putIfAbsent(
-        topRootLayer!,
-        () => createPage(topRootLayer!),
-      );
-    }
+    topRootPage = rootPageMap.putIfAbsent(
+      topRootLayer!,
+      () => createPage(topRootLayer!),
+    );
 
     sidebarHighlighLabel.value = label;
     switchNotifier.value++;
@@ -438,7 +434,6 @@ class LayersManager {
 
     topRootLayer = null;
     topRootPage = null;
-    bottomRootPage = null;
 
     switchNotifier.value++;
   }
@@ -456,8 +451,6 @@ class LayersManager {
     rootPageMap.removeWhere((k, v) => k != topRootLayer);
 
     switchNotifier.value++;
-
-    bottomRootPage = null;
   }
 
   void clearArtistAlbum() {
@@ -472,7 +465,5 @@ class LayersManager {
     rootLayerMap.removeWhere((k, v) => k == 'artists' || k == 'albums');
 
     switchNotifier.value++;
-
-    bottomRootPage = null;
   }
 }

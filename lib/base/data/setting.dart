@@ -9,7 +9,6 @@ import 'package:sylvakru/base/widgets/lyric_list_view.dart';
 import 'package:sylvakru/base/app.dart';
 import 'package:sylvakru/base/utils/path.dart';
 import 'package:sylvakru/base/widgets/manage_music_folders.dart';
-import 'package:sylvakru/portrait_view/portrait_view.dart';
 
 final artistsIsListViewNotifier = ValueNotifier(true);
 final artistsIsAscendingNotifier = ValueNotifier(true);
@@ -55,8 +54,6 @@ class Setting {
     playlistsUseLargePictureNotifier.value =
         json['playlistsUseLargePicture'] as bool? ??
         playlistsUseLargePictureNotifier.value;
-
-    endDrawerNotifier.value = json['endDrawer'] as bool? ?? Platform.isIOS;
 
     vibrationOnNoitifier.value =
         json['vibrationOn'] as bool? ?? vibrationOnNoitifier.value;
@@ -114,8 +111,6 @@ class Setting {
         'albumsUseLargePicture': albumsUseLargePictureNotifier.value,
 
         'playlistsUseLargePicture': playlistsUseLargePictureNotifier.value,
-
-        'endDrawer': endDrawerNotifier.value,
 
         'vibrationOn': vibrationOnNoitifier.value,
         'language': localeNotifier.value?.languageCode,

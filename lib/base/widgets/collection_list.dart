@@ -13,8 +13,8 @@ import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/asset_images.dart';
 import 'package:sylvakru/base/widgets/my_divider.dart';
 import 'package:sylvakru/base/widgets/my_switch.dart';
-import 'package:sylvakru/portrait_view/custom_appbar_leading.dart';
 import 'package:sylvakru/portrait_view/my_search_field.dart';
+import 'package:sylvakru/portrait_view/root_tab_bar.dart';
 
 part '../../landscape_view/panels/collection_list_panel.dart';
 part '../../portrait_view/pages/collection_list_page.dart';

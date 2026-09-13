@@ -11,7 +11,7 @@ import 'package:sylvakru/base/widgets/my_navigator.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/landscape_view/title_bar.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
-import 'package:sylvakru/portrait_view/custom_appbar_leading.dart';
+import 'package:sylvakru/portrait_view/root_tab_bar.dart';
 
 part '../landscape_view/panels/folders_panel.dart';
 part '../portrait_view/pages/folders_page.dart';
