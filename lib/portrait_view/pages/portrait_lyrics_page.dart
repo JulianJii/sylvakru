@@ -174,9 +174,7 @@ class _PortraitLyricsPageState extends State<PortraitLyricsPage> {
                 color: Colors.transparent,
                 shape: SmoothRectangleBorder(
                   smoothness: 1,
-                  borderRadius: .circular(
-                    value ? screenRadius?.topLeft ?? 0 : 0,
-                  ),
+                  borderRadius: .circular(value ? dragCornerRadius : 0),
                 ),
                 clipBehavior: value ? .antiAliasWithSaveLayer : .antiAlias,
                 child: child,

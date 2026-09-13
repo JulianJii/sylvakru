@@ -76,7 +76,6 @@ dependencies:
   crypto: ^3.0.7
   charset: ^2.0.1
   pool: ^1.5.3
-  screen_corner_radius: ^3.0.0
   xml: ^7.0.1
   drift: ^2.35.0
   drift_flutter: ^0.3.1

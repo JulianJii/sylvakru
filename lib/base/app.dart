@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:screen_corner_radius/screen_corner_radius.dart';
 
 const String versionNumber = '4.1.0';
 
@@ -15,7 +14,8 @@ const isTV = bool.fromEnvironment('TV', defaultValue: false);
 
 final globalNavigatorKey = GlobalKey<NavigatorState>();
 
-late final ScreenRadius? screenRadius;
+/// Corner radius applied to the lyrics page while it is being dragged down.
+const double dragCornerRadius = 12;
 
 enum ThemeType { vivid, light, dark, custom }
 
