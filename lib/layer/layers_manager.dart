@@ -61,9 +61,12 @@ class LayersManager {
   final switchNotifier = ValueNotifier(0);
 
   Widget createPage(Widget layer) {
+    // start from the background currently on screen: pages pushed on top of a
+    // layer (the settings route and its children) are never visited by
+    // updateBackground, so they would otherwise flash a grey backplate
     final layerInfo = layerInfoMap.putIfAbsent(
       layer,
-      () => LayerInfo(null, Colors.grey),
+      () => LayerInfo(backgroundPicture, backgroundCoverArtColor),
     );
     return Stack(
       key: GlobalKey(),
@@ -162,6 +165,60 @@ class LayersManager {
     sidebarHighlighLabel.value = label;
     switchNotifier.value++;
     updateBackground();
+  }
+
+  // in a narrow layout settings is not a root layer but a route pushed on the
+  // root navigator, so it can be popped back to whatever was on screen before
+  bool settingsPagePushed = false;
+
+  // pages opened from settings (about / license / fonts / premium) must be
+  // pushed onto the same navigator that holds the settings route
+  GlobalKey<NavigatorState> get settingsNavigatorKey =>
+      settingsPagePushed ? globalNavigatorKey : settingsKey;
+
+  /// Opens settings: a narrow layout gets a full screen route that can be
+  /// popped back, a wide layout keeps switching the root layer.
+  void openSettings() {
+    final layoutContext = globalNavigatorKey.currentContext;
+
+    if (layoutContext == null || !isTooNarrow(layoutContext)) {
+      switchRootLayer('settings');
+      return;
+    }
+
+    final navigator = globalNavigatorKey.currentState;
+    if (navigator == null || settingsPagePushed) {
+      return;
+    }
+
+    settingsPagePushed = true;
+
+    final layer = SettingsPage();
+    final page = createPage(layer);
+
+    navigator
+        .push(MaterialPageRoute(builder: (context) => page))
+        .whenComplete(() {
+          settingsPagePushed = false;
+          layerInfoMap.remove(layer);
+          updateBackground();
+        });
+  }
+
+  /// Closes the pushed settings route. Returns whether a route was popped; it
+  /// is false in a wide layout, where settings is a root layer instead.
+  Future<bool> closeSettings() async {
+    if (!settingsPagePushed) {
+      return false;
+    }
+
+    final navigator = globalNavigatorKey.currentState;
+    if (navigator == null || !navigator.canPop()) {
+      return false;
+    }
+
+    navigator.pop();
+    return true;
   }
 
   void removeLayerIfNeed(dynamic target) async {
@@ -307,7 +364,7 @@ class LayersManager {
       rootKey = playlistsKey;
       visibleNotifier = playlistsVisibleNotifier;
     } else {
-      rootKey = settingsKey;
+      rootKey = settingsNavigatorKey;
       visibleNotifier = settingsVisibleNotifier;
       if (detailLayer is LicenseLayer) {
         detailWidgetMap[rootLayer] = parentLayer;
@@ -447,7 +504,7 @@ class LayersManager {
     popDetail('playlists', executePop: false);
 
     layerInfoMap.removeWhere((k, v) => k != topRootLayer);
-    rootLayerMap.removeWhere((k, v) => k != 'settings');
+    rootLayerMap.removeWhere((k, v) => v != topRootLayer);
     rootPageMap.removeWhere((k, v) => k != topRootLayer);
 
     switchNotifier.value++;

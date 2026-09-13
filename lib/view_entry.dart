@@ -106,6 +106,9 @@ class _ViewEntryState extends State<ViewEntry> with WidgetsBindingObserver {
         if (didPop | isTyping | isTV) {
           return;
         }
+        if (await layersManager.closeSettings()) {
+          return;
+        }
         if (await layersManager.popDetail(sidebarHighlighLabel.value)) {
           return;
         }

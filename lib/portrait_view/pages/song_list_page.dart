@@ -204,7 +204,7 @@ extension _SongListPage on _SongListState {
             visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
             onTap: () {
               Navigator.pop(context);
-              layersManager.switchRootLayer('settings');
+              layersManager.openSettings();
             },
           ),
         ],
