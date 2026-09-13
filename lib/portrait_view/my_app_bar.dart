@@ -1,9 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/app.dart';
+import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
-
-/// Title every root tab page shows in its top bar.
-const String rootAppBarTitle = 'MyMusic';
 
 /// The one top bar the portrait pages share.
 ///
@@ -11,7 +9,7 @@ const String rootAppBarTitle = 'MyMusic';
 /// get, so a root tab page can no longer grow a back arrow the way the songs /
 /// ranking / recently tabs used to:
 ///
-/// * `MyAppBar()` - a root tab page. Shows [rootAppBarTitle] and **never** a
+/// * `MyAppBar()` - a root tab page. Shows the localized app name and **never** a
 ///   leading widget, because a tab is not somewhere you go back from.
 /// * `MyAppBar.detail()` - a page stacked on top of a root layer. Shows a back
 ///   arrow instead of the title.
@@ -19,7 +17,7 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Top bar of a root tab page (songs / ranking / recently / folders /
   /// artists / albums / playlists).
   const MyAppBar({super.key, this.actions})
-    : title = rootAppBarTitle,
+    : title = null,
       backLabel = null,
       onBack = null,
       centerTitle = false;
@@ -39,7 +37,7 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
          'a detail top bar needs a backLabel or an onBack',
        );
 
-  /// Root pages default it to [rootAppBarTitle]; a detail page can name itself
+  /// Root pages default it to the localized app name; a detail page can name itself
   /// or show no title at all (the artist / album / folder / playlist detail
   /// pages draw their own large header in the body).
   final String? title;
@@ -67,6 +65,9 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
     return ValueListenableBuilder(
       valueListenable: mainPageThemeNotifier,
       builder: (context, theme, child) {
+        // a root tab bar shows the localized app name; a detail page names
+        // itself (or shows nothing)
+        final titleText = _isDetail ? title : AppLocalizations.of(context).sylvakru;
         return AppBar(
           automaticallyImplyLeading: false,
           leading: _isDetail
@@ -80,10 +81,10 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
           scrolledUnderElevation: 0,
           systemOverlayStyle: theme == .dark ? .light : .dark,
           centerTitle: centerTitle,
-          title: title == null
+          title: titleText == null
               ? null
               : Text(
-                  title!,
+                  titleText,
                   style: _isDetail
                       ? null
                       : const TextStyle(
