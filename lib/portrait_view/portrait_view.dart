@@ -18,9 +18,9 @@ class _PortraitViewState extends State<PortraitView> {
 
     // the highlight is read straight from sidebarHighlighLabel by RootTabBar,
     // so there is no tab controller to keep in sync here anymore. The stored
-    // order can still hold a layer that is not a root tab at all (settings, a
+    // layer can still be one that is not a root tab at all (settings, a
     // playlist), in which case fall back to songs.
-    if (rootTabIndexOf(sidebarHighlighLabel.value) < 0) {
+    if (!rootLayerLabels.contains(sidebarHighlighLabel.value)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         layersManager.switchRootLayer('songs');
       });

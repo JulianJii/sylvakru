@@ -9,7 +9,6 @@ import 'package:sylvakru/base/widgets/lyric_list_view.dart';
 import 'package:sylvakru/base/app.dart';
 import 'package:sylvakru/base/utils/path.dart';
 import 'package:sylvakru/base/widgets/manage_music_folders.dart';
-import 'package:sylvakru/portrait_view/root_tab_bar.dart';
 
 final artistsIsListViewNotifier = ValueNotifier(true);
 final artistsIsAscendingNotifier = ValueNotifier(true);
@@ -93,8 +92,6 @@ class Setting {
         json['exitOnClose'] as bool? ?? exitOnCloseNotifier.value;
 
     recursiveScanNotifier.value = json['recursiveScan'] as bool? ?? false;
-
-    loadRootTabOrder(json['rootTabOrder']);
   }
 
   void save() {
@@ -124,7 +121,6 @@ class Setting {
         'exitOnClose': exitOnCloseNotifier.value,
 
         'recursiveScan': recursiveScanNotifier.value,
-        'rootTabOrder': rootTabOrderNotifier.value,
       }),
     );
   }
