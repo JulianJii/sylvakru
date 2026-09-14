@@ -2,11 +2,17 @@ name: Release Android
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
 permissions:
   contents: write
+
+# main 上快速连续 push 时，取消上一次还在跑的构建；tag 触发的发布不取消，避免发一半。
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type == 'branch' }}
 
 env:
   KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -14,8 +20,11 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v4
         with:
@@ -31,10 +40,34 @@ jobs:
 
       - run: flutter pub get
 
-      # 签名密钥（可选）。在仓库 Settings → Secrets 配置：
-      #   ANDROID_KEYSTORE_BASE64   = base64 -w0 android/sylvakru-release.jks
+      # pubspec 的 version 决定 tag：main 上发现新版本就补 tag（用 GITHUB_TOKEN push 不会再次触发本工作流）。
+      # 该 tag 已有 release 就只做构建校验 —— tag 重推、run 重跑、并发取消后重跑都不会重复发布。
+      - name: Version / tag
+        id: ver
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VER=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | tr -d '\r')
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="v${VER%%+*}"
+            if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git tag "$TAG" && git push origin "$TAG"
+            fi
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG 已存在，跳过发布"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # 签名密钥（可选）。仓库 Settings → Secrets：
+      #   ANDROID_KEYSTORE_BASE64 = base64 -w0 android/sylvakru-release.jks
       #   ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_PASSWORD / ANDROID_KEY_ALIAS
-      # 未配置时回退到 debug 签名，构建产物可安装但不可上架。
       - name: Prepare signing
         if: env.KEYSTORE_BASE64 != ''
         env:
@@ -48,9 +81,16 @@ jobs:
 
       - run: flutter build apk --release --split-per-abi
 
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - name: Upload APK (build check)
+        if: steps.ver.outputs.release != 'true'
+        uses: actions/upload-artifact@v4
         with:
-          files: build/app/outputs/flutter-apk/*.apk
-          generate_release_notes: true
+          name: app-release-apks
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 7
+
+      - name: Publish release
+        if: steps.ver.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ steps.ver.outputs.tag }}" --generate-notes build/app/outputs/flutter-apk/*.apk
