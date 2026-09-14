@@ -1,8 +1,10 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:path/path.dart' as p;
 import 'package:smooth_corner/smooth_corner.dart';
 import 'package:sylvakru/base/asset_images.dart';
 import 'package:sylvakru/base/data/library.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
+import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/base/utils/metadata_utils.dart';
 import 'package:sylvakru/base/widgets/cover_art_widget.dart';
 import 'package:sylvakru/base/widgets/my_divider.dart';

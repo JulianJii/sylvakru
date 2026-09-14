@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/app.dart';
 import 'package:sylvakru/base/data/setting.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
+import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
+import 'package:sylvakru/landscape_view/sidebar.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
 
 // the root tabs (and their order) the app ships with; users can reorder them
@@ -68,9 +72,18 @@ void loadRootTabOrder(Object? saved) {
   rootTabOrderNotifier.value = order;
 }
 
+// setting.save() writes setting.json synchronously, so it must not run inside
+// the callback that ends a drag - keep it out of that frame
+Timer? _saveOrderTimer;
+
+void _scheduleSaveOrder() {
+  _saveOrderTimer?.cancel();
+  _saveOrderTimer = Timer(const Duration(milliseconds: 400), setting.save);
+}
+
 /// Moves the tab at [fromIndex] into the slot currently held by [toIndex].
-/// The selected layer does not change, [PortraitView] keeps the highlight on
-/// it through [rootTabOrderNotifier].
+/// The selected layer does not change, the highlight follows
+/// [sidebarHighlighLabel] through [rootTabOrderNotifier].
 void moveRootTab(int fromIndex, int toIndex) {
   final order = List<String>.of(rootTabOrderNotifier.value);
   if (fromIndex < 0 || fromIndex >= order.length) {
@@ -83,12 +96,17 @@ void moveRootTab(int fromIndex, int toIndex) {
   order.insert(toIndex, order.removeAt(fromIndex));
   rootTabOrderNotifier.value = order;
 
-  setting.save();
+  _scheduleSaveOrder();
 }
 
-// shared by every root page so all tab bars stay in sync; created by PortraitView
-late TabController rootTabController;
-
+/// A horizontal [ReorderableListView] instead of a [TabBar]: a [TabBar] needs
+/// its [TabController] to keep pointing at the same children, which reordering
+/// breaks, and a [Draggable] on top of it fights the tab bar's own sideways
+/// scrolling. The list brings the drop animation, the edge auto scroll and the
+/// drag proxy the hand written version was missing.
+///
+/// The highlight comes from [sidebarHighlighLabel], the same source the wide
+/// layout sidebar uses, so there is no controller left to fall out of sync.
 class RootTabBar extends StatelessWidget {
   const RootTabBar({super.key});
 
@@ -98,43 +116,63 @@ class RootTabBar extends StatelessWidget {
 
     return ListenableBuilder(
       listenable: Listenable.merge([
+        rootTabOrderNotifier,
+        sidebarHighlighLabel,
         sidebarColor.valueNotifier,
         highlightTextColor.valueNotifier,
         textColor.valueNotifier,
-        rootTabOrderNotifier,
+        selectedItemColor.valueNotifier,
       ]),
       builder: (context, child) {
         final order = rootTabOrderNotifier.value;
+        final highlightLabel = sidebarHighlighLabel.value;
 
+        // the tab bar sits directly on the layer's own background (vivid /
+        // light / dark all come from here), so it must not paint a color of
+        // its own - otherwise it shows up as a slightly different band
         return Material(
-          color: sidebarColor.value,
-          child: TabBar(
-            controller: rootTabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-            dividerColor: Colors.transparent,
-            indicatorColor: Colors.transparent,
-            labelColor: highlightTextColor.value,
-            unselectedLabelColor: textColor.value,
-            labelStyle: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+          color: Colors.transparent,
+          child: SizedBox(
+            height: 46,
+            child: ReorderableListView.builder(
+              scrollDirection: Axis.horizontal,
+              buildDefaultDragHandles: false,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              itemCount: order.length,
+              onReorderStart: (index) => tryVibrate(),
+              onReorderItem: moveRootTab,
+              proxyDecorator: _proxyDecorator,
+              itemBuilder: (context, index) {
+                final label = order[index];
+                final key = ValueKey(label);
+
+                final tab = Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: _RootTab(
+                    text: rootTabText(l10n, label),
+                    selected: label == highlightLabel,
+                    onTap: () => layersManager.switchRootLayer(label),
+                  ),
+                );
+
+                // touch screens need a long press, otherwise dragging a tab
+                // would fight with scrolling the tab bar sideways; a mouse has
+                // no such conflict and can start dragging right away
+                if (isMobile) {
+                  return ReorderableDelayedDragStartListener(
+                    key: key,
+                    index: index,
+                    child: tab,
+                  );
+                }
+
+                return ReorderableDragStartListener(
+                  key: key,
+                  index: index,
+                  child: tab,
+                );
+              },
             ),
-            unselectedLabelStyle: const TextStyle(fontSize: 15),
-            onTap: (index) {
-              layersManager.switchRootLayer(order[index]);
-            },
-            tabs: [
-              for (int i = 0; i < order.length; i++)
-                _RootTab(
-                  key: ValueKey(order[i]),
-                  index: i,
-                  label: order[i],
-                  text: rootTabText(l10n, order[i]),
-                ),
-            ],
           ),
         );
       },
@@ -142,91 +180,67 @@ class RootTabBar extends StatelessWidget {
   }
 }
 
+// a tab is transparent while it is not selected, so the proxy has to bring its
+// own chip background - otherwise the dragged label floats over the page
+Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
+  return AnimatedBuilder(
+    animation: animation,
+    builder: (context, _) {
+      return Material(
+        color: Colors.transparent,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: sidebarColor.value,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 class _RootTab extends StatelessWidget {
   const _RootTab({
-    super.key,
-    required this.index,
-    required this.label,
     required this.text,
+    required this.selected,
+    required this.onTap,
   });
 
-  final int index;
-  final String label;
   final String text;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (details) => details.data != label,
-      onAcceptWithDetails: (details) {
-        moveRootTab(rootTabIndexOf(details.data), index);
-      },
-      builder: (context, candidateData, rejectedData) {
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            color: candidateData.isEmpty
-                ? Colors.transparent
-                : selectedItemColor.value,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: _dragSource(),
-        );
-      },
-    );
-  }
-
-  Widget _dragSource() {
-    final tab = Tab(text: text);
-    final childWhenDragging = Opacity(opacity: 0.3, child: tab);
-
-    final feedback = Material(
-      color: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: sidebarColor.value,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8,
-              offset: Offset(0, 2),
+    return Material(
+      color: selected ? selectedItemColor.value : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        mouseCursor: SystemMouseCursors.click,
+        onTap: onTap,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: selected ? highlightTextColor.value : textColor.value,
+              ),
             ),
-          ],
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: highlightTextColor.value,
           ),
         ),
       ),
-    );
-
-    // touch screens need a long press, otherwise dragging would fight with
-    // scrolling the tab bar sideways; a mouse has no such conflict
-    if (isMobile) {
-      return LongPressDraggable<String>(
-        data: label,
-        axis: Axis.horizontal,
-        delay: const Duration(milliseconds: 300),
-        hapticFeedbackOnStart: true,
-        dragAnchorStrategy: childDragAnchorStrategy,
-        feedback: feedback,
-        childWhenDragging: childWhenDragging,
-        child: tab,
-      );
-    }
-
-    return Draggable<String>(
-      data: label,
-      axis: Axis.horizontal,
-      dragAnchorStrategy: childDragAnchorStrategy,
-      feedback: feedback,
-      childWhenDragging: childWhenDragging,
-      child: tab,
     );
   }
 }

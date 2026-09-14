@@ -5,7 +5,7 @@ extension FoldersPage on FoldersLayer {
     return Scaffold(
       backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: false,
-      appBar: const MyAppBar(),
+      appBar: MyAppBar(actions: [moreButton(context)]),
       body: Column(
         children: [
           const RootTabBar(),
@@ -35,7 +35,8 @@ extension FoldersPage on FoldersLayer {
                       );
                     },
                   ),
-                  title: Text(folder.id),
+                  // only the folder itself, not the whole path it was added with
+                  title: Text(p.basename(folder.id)),
                   onTap: () {
                     layersManager.pushDetail('folders', folder);
                   },
@@ -46,5 +47,44 @@ extension FoldersPage on FoldersLayer {
         ],
       ),
     );
+  }
+
+  /// The one action this tab has: the settings entry every other root tab
+  /// offers at the end of its action row. Searching / sorting a folder list is
+  /// not something a user does, so there is no search field or sort button next
+  /// to it.
+  Widget moreButton(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Builder(
+      builder: (buttonContext) {
+        return IconButton(
+          tooltip: l10n.more,
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          icon: Icon(Icons.more_vert),
+          onPressed: () {
+            tryVibrate();
+
+            showContextMenu(context, [
+              MenuItem(
+                iconData: Icons.settings_outlined,
+                text: l10n.settings,
+                callback: () => layersManager.openSettings(),
+              ),
+            ], menuAnchor(buttonContext));
+          },
+        );
+      },
+    );
+  }
+
+  // anchor point for popup menus opened from toolbar icon buttons
+  Offset menuAnchor(BuildContext context) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) {
+      return Offset.zero;
+    }
+    return box.localToGlobal(box.size.bottomRight(Offset.zero));
   }
 }

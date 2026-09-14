@@ -98,7 +98,7 @@ extension FoldersPanel on FoldersLayer {
 
                           Expanded(
                             child: Text(
-                              folder.id,
+                              p.basename(folder.id),
                               style: TextStyle(overflow: .ellipsis),
                             ),
                           ),

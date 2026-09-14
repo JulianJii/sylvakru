@@ -11,45 +11,20 @@ class PortraitView extends StatefulWidget {
   State<StatefulWidget> createState() => _PortraitViewState();
 }
 
-class _PortraitViewState extends State<PortraitView>
-    with SingleTickerProviderStateMixin {
-  // keep tab highlight in sync with switches triggered elsewhere,
-  // e.g. removing the current playlist falls back to songs,
-  // and with the selected tab being dragged to another position
-  void syncTabFromManager() {
-    final index = rootTabIndexOf(sidebarHighlighLabel.value);
-    if (index < 0 || rootTabController.index == index) {
-      return;
-    }
-    rootTabController.animateTo(index);
-  }
-
+class _PortraitViewState extends State<PortraitView> {
   @override
   void initState() {
     super.initState();
 
-    final index = rootTabIndexOf(sidebarHighlighLabel.value);
-    rootTabController = TabController(
-      length: rootLayerLabels.length,
-      vsync: this,
-      initialIndex: index < 0 ? 0 : index,
-    );
-    layersManager.switchNotifier.addListener(syncTabFromManager);
-    rootTabOrderNotifier.addListener(syncTabFromManager);
-
-    if (index < 0) {
+    // the highlight is read straight from sidebarHighlighLabel by RootTabBar,
+    // so there is no tab controller to keep in sync here anymore. The stored
+    // order can still hold a layer that is not a root tab at all (settings, a
+    // playlist), in which case fall back to songs.
+    if (rootTabIndexOf(sidebarHighlighLabel.value) < 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         layersManager.switchRootLayer('songs');
       });
     }
-  }
-
-  @override
-  void dispose() {
-    layersManager.switchNotifier.removeListener(syncTabFromManager);
-    rootTabOrderNotifier.removeListener(syncTabFromManager);
-    rootTabController.dispose();
-    super.dispose();
   }
 
   @override
