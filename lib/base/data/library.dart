@@ -25,6 +25,19 @@ final ValueNotifier<double> cacheSizeNotifier = ValueNotifier(0);
 class Library {
   MetadataDB? _metadataDB;
 
+  /// 数据库里当前存放的歌曲 id 顺序。写入前靠它算出真正需要落盘的差异，
+  /// 重排时也靠它定位下标发生平移的那一段。
+  List<String> _savedOrder = [];
+
+  /// 所有写库操作都排在这一条串行链上：既不会有两个事务交叠、各自用
+  /// 过期数据互相覆盖，也能把连续触发（例如拖动排序）合并成一次写入。
+  Future<void> _writeQueue = Future.value();
+
+  bool _orderSavePending = false;
+
+  /// 删除消失歌曲时每个 IN 子句的最大长度，避免超出 SQLite 的参数上限。
+  static const int _deleteChunkSize = 500;
+
   Map<String, MyAudioMetadata> id2Song = {};
   List<MyAudioMetadata> songList = [];
 
@@ -125,9 +138,10 @@ class Library {
       int offset = 0;
 
       do {
-        rows = await (_metadataDB!.select(
-          _metadataDB!.metadataItems,
-        )..limit(10000, offset: offset)).get();
+        rows = await (_metadataDB!.select(_metadataDB!.metadataItems)
+              ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)])
+              ..limit(10000, offset: offset))
+            .get();
 
         if (rows.isEmpty) {
           break;
@@ -143,6 +157,9 @@ class Library {
         layersManager.updateBackground();
         offset += rows.length;
       } while (true);
+
+      // 记下刚读进来的顺序，之后重排时才知道哪一段发生了变化。
+      _savedOrder = songList.map((e) => e.id).toList();
 
       canModify = true;
       changeNotifier.value++;
@@ -233,18 +250,104 @@ class Library {
     imageCache.clearLiveImages();
   }
 
-  Future<void> _saveMetadata() async {
-    final db = _metadataDB!;
+  /// 把一次写库任务排进串行队列。队列本身不抛错、失败只记日志，
+  /// 这样一次写失败不会卡死后续写入，调用方也不必都去 await。
+  Future<void> _enqueueWrite(Future<void> Function() task) {
+    final done = _writeQueue.then((_) => task()).catchError((Object e) {
+      logger.output("Failed to write metadata database: $e");
+    });
+    _writeQueue = done;
+    return done;
+  }
+
+  /// 登记一次顺序写入。拖动排序会连续触发，这里只排一次队，
+  /// 真正执行时读到的是那一刻最新的 songList。
+  void _scheduleOrderSave() {
+    if (_orderSavePending) {
+      return;
+    }
+    _orderSavePending = true;
+    _enqueueWrite(() async {
+      _orderSavePending = false;
+      await _persistOrder();
+    });
+  }
+
+  /// 只把顺序落盘。重排会让一段连续下标的歌曲整体平移，
+  /// 其余行原样不动，所以只有这一小段需要写。
+  Future<void> _persistOrder() async {
+    final db = _metadataDB;
+    if (db == null) {
+      return;
+    }
+
+    final order = songList.map((e) => e.id).toList();
+
+    if (order.length != _savedOrder.length) {
+      // 歌曲集合变了（新增或移除），只改下标不够，交给全量写入补齐。
+      await _persistAll();
+      return;
+    }
+
+    int start = 0;
+    while (start < order.length && order[start] == _savedOrder[start]) {
+      start++;
+    }
+    if (start == order.length) {
+      return;
+    }
+
+    int end = order.length - 1;
+    while (order[end] == _savedOrder[end]) {
+      end--;
+    }
+
+    await db.batch((batch) {
+      for (int i = start; i <= end; i++) {
+        batch.update(
+          db.metadataItems,
+          MetadataItemsCompanion(orderIndex: Value(i)),
+          where: (t) => t.id.equals(order[i]),
+        );
+      }
+    });
+
+    _savedOrder = order;
+  }
+
+  /// 曲库全量对齐：更新或插入当前歌曲，并删掉已经消失的行。
+  /// 扫描曲库（[sync]）之后会走到这里。
+  Future<void> _persistAll() async {
+    final db = _metadataDB;
+    if (db == null) {
+      return;
+    }
+
+    final order = songList.map((e) => e.id).toList();
+    final currentIds = order.toSet();
+    final removed = _savedOrder
+        .where((id) => !currentIds.contains(id))
+        .toList();
+
     await db.transaction(() async {
-      await db.delete(db.metadataItems).go();
+      // 只删真正消失的行，避免构造一个动辄上千项的 IN 子句。
+      for (int i = 0; i < removed.length; i += _deleteChunkSize) {
+        final chunk = removed.sublist(
+          i,
+          (i + _deleteChunkSize).clamp(0, removed.length),
+        );
+        await (db.delete(db.metadataItems)..where((t) => t.id.isIn(chunk))).go();
+      }
 
       await db.batch((batch) {
-        batch.insertAll(
-          db.metadataItems,
-          songList.map((e) => e.toCompanion()).toList(),
-        );
+        batch.insertAllOnConflictUpdate(db.metadataItems, [
+          for (int i = 0; i < songList.length; i++)
+            songList[i].toCompanion(orderIndex: i),
+        ]);
       });
     });
+
+    _savedOrder = order;
   }
 
   Future<void> updatePlayCount(MyAudioMetadata song) async {
@@ -297,7 +400,7 @@ class Library {
     changeNotifier.value++;
     layersManager.updateBackground();
     if (isNotStreamSource) {
-      _saveMetadata();
+      _scheduleOrderSave();
     }
   }
 
@@ -436,7 +539,7 @@ class Library {
           folder.clearPathAndModified();
         }
 
-        await _saveMetadata();
+        await _enqueueWrite(_persistAll);
       default:
         id2Song = {};
         songList = [];

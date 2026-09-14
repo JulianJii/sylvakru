@@ -78,7 +78,6 @@ dependencies:
   pool: ^1.5.3
   xml: ^7.0.1
   drift: ^2.35.0
-  drift_flutter: ^0.3.1
   just_font_scan: ^0.3.0
   flutter_secure_storage: ^11.1.0
   text_scroll: ^0.2.1

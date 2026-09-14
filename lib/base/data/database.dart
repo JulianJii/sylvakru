@@ -10,6 +10,11 @@ part 'database.g.dart';
 class MetadataItems extends Table {
   TextColumn get id => text()();
 
+  /// 曲库中的显示顺序。此前没有这一列，顺序是靠在整表重写时重新分配
+  /// rowid 隐式保存的，重排因此必须重写每一行。显式存下来之后，
+  /// 重排只需要更新下标发生平移的那一段。
+  IntColumn get orderIndex => integer().withDefault(const Constant(0))();
+
   IntColumn get modified => integer().nullable()();
 
   TextColumn get format => text().nullable()();
@@ -43,7 +48,7 @@ class MetadataDB extends _$MetadataDB {
   MetadataDB(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -58,6 +63,13 @@ class MetadataDB extends _$MetadataDB {
 
         if (from < 3) {
           await m.dropColumn(metadataItems, 'source_type');
+        }
+
+        if (from < 4) {
+          await m.addColumn(metadataItems, metadataItems.orderIndex);
+          // 旧库的顺序原本由 rowid 承载，按 rowid 回填即可让升级前后
+          // 读出来的曲库顺序完全一致。
+          await customStatement('UPDATE metadata_items SET order_index = rowid');
         }
       },
     );

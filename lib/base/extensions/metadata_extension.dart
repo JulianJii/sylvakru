@@ -48,9 +48,11 @@ extension MetadataItemMapper on MetadataItem {
 }
 
 extension MyAudioMetadataMapper on MyAudioMetadata {
-  MetadataItemsCompanion toCompanion() {
+  MetadataItemsCompanion toCompanion({int orderIndex = 0}) {
     return MetadataItemsCompanion.insert(
       id: id,
+
+      orderIndex: Value(orderIndex),
 
       modified: Value(modified?.millisecondsSinceEpoch),
 
