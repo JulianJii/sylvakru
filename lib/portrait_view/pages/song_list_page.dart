@@ -421,8 +421,8 @@ extension _SongListPage on _SongListState {
   }) {
     return ListTile(
       leading: leading,
-      title: Text(text, style: TextStyle(fontWeight: FontWeight.bold)),
-      visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
+      title: Text(text),
+      minTileHeight: 58,
       onTap: onTap,
     );
   }
@@ -442,7 +442,21 @@ extension _SongListPage on _SongListState {
             return MySheet(
               Column(
                 children: [
-                  SizedBox(height: 5),
+                  // a hint that the sheet can be dragged down
+                  ValueListenableBuilder(
+                    valueListenable: dividerColor.valueNotifier,
+                    builder: (context, value, child) {
+                      return Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(top: 8, bottom: 4),
+                        decoration: BoxDecoration(
+                          color: value,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      );
+                    },
+                  ),
 
                   ListTile(
                     leading: CoverArtWidget(
