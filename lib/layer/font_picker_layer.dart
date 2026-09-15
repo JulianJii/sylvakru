@@ -83,11 +83,11 @@ class _FontPickerLayerState extends State<FontPickerLayer> {
   void addFontAction(BuildContext context) async {
     final l10n = AppLocalizations.of(context);
 
-    final fileResult = await FilePicker.pickFiles(
+    final files = await FilePicker.pickFiles(
       type: .custom,
       allowedExtensions: ['ttf', 'otf', 'ttc'],
     );
-    if (fileResult != null) {
+    if (files.isNotEmpty) {
       if (context.mounted) {
         final result = await getInputTextDialog(context, l10n.setFontName);
         if (result == '') {
@@ -105,7 +105,7 @@ class _FontPickerLayerState extends State<FontPickerLayer> {
         }
         final loader = FontLoader(result);
 
-        for (final file in fileResult.files) {
+        for (final file in files) {
           final bytes = await File(file.path!).readAsBytes();
           loader.addFont(Future.value(ByteData.view(bytes.buffer)));
         }
@@ -114,7 +114,7 @@ class _FontPickerLayerState extends State<FontPickerLayer> {
 
         await fontManager.addFonts(
           result,
-          fileResult.files.map((e) => e.path!).toList(),
+          files.map((e) => e.path!).toList(),
         );
 
         if (importedFonts.contains(result)) {

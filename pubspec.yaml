@@ -37,10 +37,7 @@ dependencies:
 
   flutter_localizations:
     sdk: flutter
-  file_picker:
-    git:
-      url: https://github.com/miguelpruivo/flutter_file_picker.git
-      ref: v12.0.0-beta.7
+  file_picker: ^13.0.0
   permission_handler: ^13.0.2
   audio_tags_lofty: ^0.0.6
   audio_service: ^0.18.19

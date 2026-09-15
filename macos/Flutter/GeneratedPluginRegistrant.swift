@@ -7,7 +7,7 @@ import Foundation
 
 import audio_service
 import audio_session
-import file_picker
+import file_picker_darwin
 import flutter_secure_storage_darwin
 import gamepads_darwin
 import media_kit_libs_macos_audio
