@@ -59,6 +59,10 @@ class LayersManager {
   final backgroundChangeNotifier = ValueNotifier(0);
   final switchNotifier = ValueNotifier(0);
 
+  // bumped whenever a detail page is pushed / popped, so the narrow layout can
+  // hide its top bar and tab bar behind a full screen detail page
+  final detailChangeNotifier = ValueNotifier(0);
+
   Widget createPage(Widget layer) {
     // start from the background currently on screen: pages pushed on top of a
     // layer (the settings route and its children) are never visited by
@@ -149,6 +153,13 @@ class LayersManager {
     });
   }
 
+  /// The page of a root layer, created once and cached, so switching to a layer
+  /// keeps its state.
+  Widget rootPageFor(String label) {
+    final layer = getRootLayer(label);
+    return rootPageMap.putIfAbsent(layer, () => createPage(layer));
+  }
+
   void switchRootLayer(String label) {
     Widget layer = getRootLayer(label);
     if (layer == topRootLayer) {
@@ -156,10 +167,7 @@ class LayersManager {
     }
 
     topRootLayer = layer;
-    topRootPage = rootPageMap.putIfAbsent(
-      topRootLayer!,
-      () => createPage(topRootLayer!),
-    );
+    topRootPage = rootPageFor(label);
 
     sidebarHighlighLabel.value = label;
     switchNotifier.value++;
@@ -195,13 +203,13 @@ class LayersManager {
     final layer = SettingsPage();
     final page = createPage(layer);
 
-    navigator
-        .push(MaterialPageRoute(builder: (context) => page))
-        .whenComplete(() {
-          settingsPagePushed = false;
-          layerInfoMap.remove(layer);
-          updateBackground();
-        });
+    navigator.push(MaterialPageRoute(builder: (context) => page)).whenComplete(
+      () {
+        settingsPagePushed = false;
+        layerInfoMap.remove(layer);
+        updateBackground();
+      },
+    );
   }
 
   /// Closes the pushed settings route. Returns whether a route was popped; it
@@ -326,6 +334,7 @@ class LayersManager {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       visibleNotifier.value = false;
     });
+    detailChangeNotifier.value++;
   }
 
   Future<bool> popDetail(String label, {bool executePop = true}) async {
@@ -377,6 +386,7 @@ class LayersManager {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       visibleNotifier.value = true;
     });
+    detailChangeNotifier.value++;
 
     return true;
   }

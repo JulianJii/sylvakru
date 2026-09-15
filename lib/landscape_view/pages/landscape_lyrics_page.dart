@@ -83,8 +83,7 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
           pageHight * (isMobile ? 0.7 : 0.6),
         );
         if (pageHight >= 600) {
-          final infoHeight =
-              pageHight * 0.02 + 64; // 标题 + 歌手/专辑两行 + 上下间距
+          final infoHeight = pageHight * 0.02 + 64; // 标题 + 歌手/专辑两行 + 上下间距
           final controlsHeight =
               20 + // 进度条
               (35 + 16) + // 播放/暂停按钮(含默认内边距)

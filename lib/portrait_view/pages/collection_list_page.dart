@@ -2,54 +2,52 @@ part of "../../base/widgets/collection_list.dart";
 
 extension _CollectionListPage on CollectionListState {
   Widget pageView(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      resizeToAvoidBottomInset: false,
-      appBar: MyAppBar(
-        actions: [
-          searchField(searchHint),
-          ListenableBuilder(
-            listenable: Listenable.merge([
-              isListViewNotifier,
-              useLargePictureNotifier,
-            ]),
-            builder: (context, child) {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isListViewNotifier != null) viewButton(context),
-                  if (!(isListViewNotifier?.value ?? false))
-                    pictureSizeButton(context),
-                  if (randomizeNotifier != null || isAscendingNotifier != null)
-                    sortButton(context),
-                ],
+    // the portrait home draws the one top bar and the tab bar, so this page
+    // only publishes what goes in that top bar
+    return rootTabContent(
+      context,
+      [
+        searchField(searchHint),
+        ListenableBuilder(
+          listenable: Listenable.merge([
+            isListViewNotifier,
+            useLargePictureNotifier,
+          ]),
+          builder: (context, child) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isListViewNotifier != null) viewButton(context),
+                if (!(isListViewNotifier?.value ?? false))
+                  pictureSizeButton(context),
+                if (randomizeNotifier != null || isAscendingNotifier != null)
+                  sortButton(context),
+              ],
+            );
+          },
+        ),
+        moreButton(context),
+      ],
+      // its own Scaffold only to keep the floating action button (playlists)
+      // where it used to be
+      Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
+        floatingActionButton: floatingActionButton(context),
+        body: ListenableBuilder(
+          listenable: Listenable.merge([isListViewNotifier, changeNotifier]),
+          builder: (context, child) {
+            if (preparing) {
+              return Center(
+                child: CircularProgressIndicator(color: iconColor.value),
               );
-            },
-          ),
-          moreButton(context),
-        ],
+            }
+            return (isListViewNotifier?.value ?? false)
+                ? listView()
+                : pageGridView();
+          },
+        ),
       ),
-      body: Column(
-        children: [
-          const RootTabBar(),
-          Expanded(
-            child: ListenableBuilder(
-              listenable: Listenable.merge([isListViewNotifier, changeNotifier]),
-              builder: (context, child) {
-                if (preparing) {
-                  return Center(
-                    child: CircularProgressIndicator(color: iconColor.value),
-                  );
-                }
-                return (isListViewNotifier?.value ?? false)
-                    ? listView()
-                    : pageGridView();
-              },
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: floatingActionButton(context),
     );
   }
 
@@ -178,7 +176,7 @@ extension _CollectionListPage on CollectionListState {
               MenuItem(
                 iconData: Icons.settings_outlined,
                 text: l10n.settings,
-                callback: () => layersManager.switchRootLayer('settings'),
+                callback: () => layersManager.openSettings(),
               ),
             ], menuAnchor(buttonContext));
           },

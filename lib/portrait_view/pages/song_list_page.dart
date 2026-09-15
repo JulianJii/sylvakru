@@ -2,21 +2,36 @@ part of '../../base/widgets/song_list.dart';
 
 extension _SongListPage on _SongListState {
   Widget pageView(BuildContext context) {
+    final actions = topBarActions(context);
+
+    // a root tab (songs / ranking / recently) is rendered into the portrait
+    // home, which owns the one top bar and the tab bar - this page only says
+    // what goes in the top bar. A page stacked on top of a root layer keeps its
+    // own top bar with the back arrow.
+    if (widget.isRoot && playlist == null) {
+      return rootTabContent(context, actions, contentWithStack());
+    }
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: false,
       body: Column(
         children: [
-          customAppBar(context),
-          if (widget.isRoot && playlist == null) const RootTabBar(),
+          topBar(context, actions),
           Expanded(child: contentWithStack()),
         ],
       ),
     );
   }
 
-  PreferredSizeWidget customAppBar(BuildContext context) {
+  Widget topBar(BuildContext context, List<Widget> actions) {
+    return widget.isRoot
+        ? MyAppBar(actions: actions)
+        : MyAppBar.detail(backLabel: rootLabel, actions: actions);
+  }
+
+  List<Widget> topBarActions(BuildContext context) {
     final actions = <Widget>[
       ValueListenableBuilder(
         valueListenable: currentSongListNotifier,
@@ -35,11 +50,7 @@ extension _SongListPage on _SongListState {
       moreButton(context),
     ];
 
-    // a root tab (songs / ranking / recently / a root playlist) is not
-    // somewhere you go back from, so it must not render a back arrow
-    return widget.isRoot
-        ? MyAppBar(actions: actions)
-        : MyAppBar.detail(backLabel: rootLabel, actions: actions);
+    return actions;
   }
 
   Widget selectButton(BuildContext context) {

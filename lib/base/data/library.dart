@@ -138,10 +138,11 @@ class Library {
       int offset = 0;
 
       do {
-        rows = await (_metadataDB!.select(_metadataDB!.metadataItems)
-              ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)])
-              ..limit(10000, offset: offset))
-            .get();
+        rows =
+            await (_metadataDB!.select(_metadataDB!.metadataItems)
+                  ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)])
+                  ..limit(10000, offset: offset))
+                .get();
 
         if (rows.isEmpty) {
           break;
@@ -336,7 +337,9 @@ class Library {
           i,
           (i + _deleteChunkSize).clamp(0, removed.length),
         );
-        await (db.delete(db.metadataItems)..where((t) => t.id.isIn(chunk))).go();
+        await (db.delete(
+          db.metadataItems,
+        )..where((t) => t.id.isIn(chunk))).go();
       }
 
       await db.batch((batch) {

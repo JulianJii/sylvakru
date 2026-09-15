@@ -69,7 +69,9 @@ class MetadataDB extends _$MetadataDB {
           await m.addColumn(metadataItems, metadataItems.orderIndex);
           // 旧库的顺序原本由 rowid 承载，按 rowid 回填即可让升级前后
           // 读出来的曲库顺序完全一致。
-          await customStatement('UPDATE metadata_items SET order_index = rowid');
+          await customStatement(
+            'UPDATE metadata_items SET order_index = rowid',
+          );
         }
       },
     );

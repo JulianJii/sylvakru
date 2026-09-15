@@ -15,8 +15,9 @@ import 'package:sylvakru/layer/layers_manager.dart';
 ///   arrow instead of the title.
 class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Top bar of a root tab page (songs / ranking / recently / folders /
-  /// artists / albums / playlists).
-  const MyAppBar({super.key, this.actions})
+  /// artists / albums / playlists). [bottom] hangs the tab bar of the portrait
+  /// home under the one shared top bar.
+  const MyAppBar({super.key, this.actions, this.bottom})
     : title = null,
       backLabel = null,
       onBack = null,
@@ -32,7 +33,8 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onBack,
     this.actions,
     this.centerTitle = true,
-  }) : assert(
+  }) : bottom = null,
+       assert(
          backLabel != null || onBack != null,
          'a detail top bar needs a backLabel or an onBack',
        );
@@ -51,12 +53,16 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   final List<Widget>? actions;
 
+  /// The one tab bar of the portrait home, hung under the shared top bar.
+  final PreferredSizeWidget? bottom;
+
   final bool centerTitle;
 
   bool get _isDetail => backLabel != null || onBack != null;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize =>
+      Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0));
 
   @override
   Widget build(BuildContext context) {
@@ -67,13 +73,17 @@ class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
       builder: (context, theme, child) {
         // a root tab bar shows the localized app name; a detail page names
         // itself (or shows nothing)
-        final titleText = _isDetail ? title : AppLocalizations.of(context).sylvakru;
+        final titleText = _isDetail
+            ? title
+            : AppLocalizations.of(context).sylvakru;
         return AppBar(
           automaticallyImplyLeading: false,
+          bottom: bottom,
           leading: _isDetail
               ? IconButton(
                   icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                  onPressed: onBack ?? () => layersManager.popDetail(backLabel!),
+                  onPressed:
+                      onBack ?? () => layersManager.popDetail(backLabel!),
                 )
               : null,
           backgroundColor: Colors.transparent,

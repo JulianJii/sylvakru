@@ -12,7 +12,6 @@ import 'package:sylvakru/base/asset_images.dart';
 import 'package:sylvakru/base/widgets/my_divider.dart';
 import 'package:sylvakru/base/widgets/my_switch.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
-import 'package:sylvakru/portrait_view/my_app_bar.dart';
 import 'package:sylvakru/portrait_view/my_search_field.dart';
 import 'package:sylvakru/portrait_view/root_tab_bar.dart';
 
