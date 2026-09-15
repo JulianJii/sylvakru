@@ -1,5 +1,28 @@
 part of '../../base/widgets/song_list.dart';
 
+/// 双列布局下左右两格之间的间距。
+const double _columnGap = 20;
+
+/// 一个格子的各列宽度，以及是否显示专辑列。
+typedef _SongColumns = ({
+  double index,
+  double star,
+  double duration,
+  bool album,
+});
+
+/// 按单个格子的可用宽度推导列宽：太窄就不要专辑列了，否则歌名会被挤没。
+/// 表头与单元格共用同一份结果，保证对齐。
+_SongColumns _songColumns(double cellWidth) {
+  final narrow = cellWidth < 420;
+  return (
+    index: narrow ? 40 : 60,
+    star: narrow ? 45 : 60,
+    duration: narrow ? 60 : 80,
+    album: !narrow,
+  );
+}
+
 extension _SongListPanel on _SongListState {
   Widget panelView(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -32,35 +55,36 @@ extension _SongListPanel on _SongListState {
               final position = scrollController.position;
               final maxScrollExtent = position.maxScrollExtent;
               final minScrollExtent = position.minScrollExtent;
+              // 双列后行号是 index ~/ 2；表头去掉后列表整体上移 50，故为 305
               scrollController.animateTo(
-                (60 * index + 355 - (MediaQuery.heightOf(context) / 2)).clamp(
-                  minScrollExtent,
-                  maxScrollExtent,
-                ),
+                (60 * (index ~/ 2) + 305 - (MediaQuery.heightOf(context) / 2))
+                    .clamp(minScrollExtent, maxScrollExtent),
                 duration: Duration(milliseconds: 250),
                 curve: Curves.linear,
               );
             },
           ),
         ),
-        Expanded(child: panelContent(context)),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) =>
+                panelContent(context, constraints.maxWidth),
+          ),
+        ),
       ],
     );
   }
 
-  Widget panelContent(BuildContext context) {
+  Widget panelContent(BuildContext context, double maxWidth) {
+    // 一行两首，格子宽度要扣掉左右 padding 和中间的列间距
+    final columns = _songColumns(
+      (maxWidth - padding.horizontal - _columnGap) / 2,
+    );
     return CustomScrollView(
       controller: scrollController,
       slivers: [
         SliverToBoxAdapter(
           child: Padding(padding: padding, child: panelHeader()),
-        ),
-
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: padding,
-            child: Opacity(opacity: hideOthers ? 0 : 1, child: label()),
-          ),
         ),
 
         SliverPadding(
@@ -78,21 +102,40 @@ extension _SongListPanel on _SongListState {
               }
               return SliverReorderableList(
                 itemExtent: 60,
-                itemBuilder: (context, index) {
+                itemBuilder: (context, row) {
                   if (hideOthers) {
-                    return SizedBox(key: ValueKey(index));
+                    return SizedBox(key: ValueKey(row));
                   }
+                  final left = row * 2;
+                  final right = left + 1;
                   return ReorderableDragStartListener(
-                    key: ValueKey(currentSongList[index]),
+                    key: ValueKey(currentSongList[left]),
                     enabled: !isFixed & canModify,
-                    index: index,
-                    child: songListItem(index),
+                    index: row,
+                    child: Row(
+                      children: [
+                        Expanded(child: songListItem(left, columns)),
+                        SizedBox(width: _columnGap),
+                        Expanded(
+                          child: right < currentSongList.length
+                              ? songListItem(right, columns)
+                              : SizedBox(),
+                        ),
+                      ],
+                    ),
                   );
                 },
-                itemCount: currentSongList.length,
-                onReorderItem: (oldIndex, newIndex) {
-                  final item = songList.removeAt(oldIndex);
-                  songList.insert(newIndex, item);
+                itemCount: (currentSongList.length + 1) ~/ 2,
+                // 一行两首，一次拖动移动的是相邻的两首。框架给的 newIndex 已经
+                // 修正过“移除后的位移”，所以直接 remove + insert 即可。
+                onReorderItem: (oldRow, newRow) {
+                  final start = oldRow * 2;
+                  final moved = songList.sublist(
+                    start,
+                    min(start + 2, songList.length),
+                  );
+                  songList.removeRange(start, start + moved.length);
+                  songList.insertAll(min(newRow * 2, songList.length), moved);
 
                   if (isLibrary) {
                     library.update();
@@ -237,112 +280,10 @@ extension _SongListPanel on _SongListState {
                               ),
                             ],
 
-                            if (isLibrary && isNotStreamSource ||
-                                folder != null) ...[
+                            // 表头去掉后，横屏排序统一复用竖屏顶栏那份完整菜单
+                            if (!isRanking && !isRecently) ...[
                               SizedBox(width: 15),
-                              ElevatedButton(
-                                onPressed: () {
-                                  showAnimationDialog(
-                                    context: context,
-                                    child: SizedBox(
-                                      width: 300,
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(10),
-                                        child: Builder(
-                                          builder: (context) {
-                                            return ListView(
-                                              shrinkWrap: true,
-                                              children: [
-                                                ListTile(
-                                                  title: Text(l10n.defaultText),
-                                                  onTap: () {
-                                                    Navigator.pop(context);
-                                                    sortTypeNotifier.value = 0;
-                                                  },
-                                                  trailing:
-                                                      sortTypeNotifier.value ==
-                                                          0
-                                                      ? Icon(Icons.check)
-                                                      : null,
-                                                ),
-                                                ListTile(
-                                                  title: Text(
-                                                    l10n.modifiedTimeAscending,
-                                                  ),
-                                                  onTap: () {
-                                                    Navigator.pop(context);
-                                                    sortTypeNotifier.value = 9;
-                                                  },
-                                                  trailing:
-                                                      sortTypeNotifier.value ==
-                                                          9
-                                                      ? Icon(Icons.check)
-                                                      : null,
-                                                ),
-                                                ListTile(
-                                                  title: Text(
-                                                    l10n.modifiedTimedescending,
-                                                  ),
-                                                  onTap: () {
-                                                    Navigator.pop(context);
-                                                    sortTypeNotifier.value = 10;
-                                                  },
-                                                  trailing:
-                                                      sortTypeNotifier.value ==
-                                                          10
-                                                      ? Icon(Icons.check)
-                                                      : null,
-                                                ),
-                                                ListTile(
-                                                  title: Text(
-                                                    l10n.randomizeTemp,
-                                                  ),
-                                                  onTap: () {
-                                                    Navigator.pop(context);
-                                                    sortTypeNotifier.value = 11;
-                                                  },
-                                                  trailing:
-                                                      sortTypeNotifier.value ==
-                                                          11
-                                                      ? Icon(Icons.check)
-                                                      : null,
-                                                ),
-                                                ListTile(
-                                                  title: Text(
-                                                    l10n.randomizePermanent,
-                                                  ),
-                                                  onTap: () async {
-                                                    Navigator.pop(context);
-                                                    if (!await showConfirmDialog(
-                                                      context,
-                                                      l10n.cannotBeUndone,
-                                                    )) {
-                                                      return;
-                                                    }
-                                                    sortTypeNotifier.value = 0;
-                                                    if (isLibrary) {
-                                                      library.shuffle();
-                                                    } else {
-                                                      folder!.shuffle();
-                                                    }
-                                                  },
-                                                  trailing:
-                                                      sortTypeNotifier.value ==
-                                                          12
-                                                      ? Icon(Icons.check)
-                                                      : null,
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                                style: buttonStyle,
-                                child: Icon(Icons.sort),
-                              ),
+                              sortButton(context),
                             ],
                           ],
                         ),
@@ -358,169 +299,7 @@ extension _SongListPanel on _SongListState {
     );
   }
 
-  Widget label() {
-    final l10n = AppLocalizations.of(context);
-    bool canSort = !isRanking && !isRecently;
-    return SizedBox(
-      height: 50,
-      child: Row(
-        children: [
-          SizedBox(width: 60, child: Center(child: Text('#'))),
-
-          Expanded(
-            flex: 4,
-            child: InkWell(
-              mouseCursor: canSort
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              borderRadius: BorderRadius.circular(5),
-              onTap: canSort
-                  ? () {
-                      if (sortTypeNotifier.value > 4) {
-                        sortTypeNotifier.value = 1;
-                      } else if (sortTypeNotifier.value < 4) {
-                        sortTypeNotifier.value++;
-                      } else {
-                        sortTypeNotifier.value = 0;
-                      }
-                    }
-                  : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: ValueListenableBuilder(
-                  valueListenable: sortTypeNotifier,
-                  builder: (context, value, child) {
-                    String text = '${l10n.title} & ${l10n.artist}';
-                    switch (value) {
-                      case 1:
-                      case 2:
-                        text = l10n.title;
-                        break;
-                      case 3:
-                      case 4:
-                        text = l10n.artist;
-                        break;
-                    }
-                    return Row(
-                      children: [
-                        Text(text, overflow: TextOverflow.ellipsis),
-                        if (value > 0 && value <= 4)
-                          ImageIcon(
-                            (value == 1 || value == 3)
-                                ? longArrowUpImage
-                                : longArrowDownImage,
-                            size: 20,
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-
-          SizedBox(width: 10),
-
-          Expanded(
-            flex: 3,
-            child: InkWell(
-              mouseCursor: canSort
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              borderRadius: BorderRadius.circular(5),
-              onTap: canSort
-                  ? () {
-                      if (sortTypeNotifier.value == 5) {
-                        sortTypeNotifier.value = 6;
-                      } else if (sortTypeNotifier.value == 6) {
-                        sortTypeNotifier.value = 0;
-                      } else {
-                        sortTypeNotifier.value = 5;
-                      }
-                    }
-                  : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    Text(l10n.album, overflow: TextOverflow.ellipsis),
-                    ValueListenableBuilder(
-                      valueListenable: sortTypeNotifier,
-                      builder: (context, value, child) {
-                        if (value == 5 || value == 6) {
-                          return ImageIcon(
-                            value == 5 ? longArrowUpImage : longArrowDownImage,
-                            size: 20,
-                          );
-                        }
-                        return SizedBox.shrink();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          SizedBox(
-            width: 60,
-            child: Icon(Icons.star_outline_rounded, size: 22),
-          ),
-
-          SizedBox(
-            width: 80,
-            child: InkWell(
-              mouseCursor: canSort
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              borderRadius: BorderRadius.circular(5),
-              onTap: canSort
-                  ? () {
-                      if (sortTypeNotifier.value == 7) {
-                        sortTypeNotifier.value = 8;
-                      } else if (sortTypeNotifier.value == 8) {
-                        sortTypeNotifier.value = 0;
-                      } else {
-                        sortTypeNotifier.value = 7;
-                      }
-                    }
-                  : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    Text(l10n.duration, overflow: TextOverflow.ellipsis),
-                    ValueListenableBuilder(
-                      valueListenable: sortTypeNotifier,
-                      builder: (context, value, child) {
-                        if (value == 7 || value == 8) {
-                          return ImageIcon(
-                            value == 7 ? longArrowUpImage : longArrowDownImage,
-                            size: 20,
-                          );
-                        }
-                        return SizedBox.shrink();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (isRanking)
-            SizedBox(
-              width: 50,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Text(l10n.times, overflow: TextOverflow.ellipsis),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget songListItem(int index) {
+  Widget songListItem(int index, _SongColumns columns) {
     final currentSongList = currentSongListNotifier.value;
     final song = currentSongList[index];
     final isSelectedNotifier = isSelectedNotifierMap[song]!;
@@ -560,7 +339,7 @@ extension _SongListPanel on _SongListState {
                     return Row(
                       children: [
                         SizedBox(
-                          width: 60,
+                          width: columns.index,
                           child: Center(
                             child: indexOrIcon(
                               showPlayButtonNotifier,
@@ -574,16 +353,17 @@ extension _SongListPanel on _SongListState {
 
                         SizedBox(width: 10),
 
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            getAlbum(song),
-                            overflow: TextOverflow.ellipsis,
+                        if (columns.album)
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              getAlbum(song),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
 
                         SizedBox(
-                          width: 60,
+                          width: columns.star,
                           child: Center(
                             child: IconButton(
                               onPressed: () {
@@ -609,7 +389,7 @@ extension _SongListPanel on _SongListState {
                         ),
 
                         SizedBox(
-                          width: 80,
+                          width: columns.duration,
                           child: Text(
                             formatDuration(getDuration(song)),
                             overflow: TextOverflow.ellipsis,
