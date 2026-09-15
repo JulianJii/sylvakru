@@ -194,14 +194,6 @@ class _TitleBarState extends State<TitleBar> {
 
         if (widget.isMainPage)
           IconButton(
-            onPressed: () {
-              layersManager.switchRootLayer('settings');
-            },
-            icon: ImageIcon(settingImage),
-          ),
-
-        if (widget.isMainPage)
-          IconButton(
             onPressed: () async {
               if (!await showConfirmDialog(
                 context,
@@ -221,6 +213,14 @@ class _TitleBarState extends State<TitleBar> {
               });
             },
             icon: ImageIcon(bigPictureModeImage),
+          ),
+
+        if (widget.isMainPage)
+          IconButton(
+            onPressed: () {
+              layersManager.switchRootLayer('settings');
+            },
+            icon: ImageIcon(settingImage),
           ),
 
         if (!isMobile) windowControls(),
