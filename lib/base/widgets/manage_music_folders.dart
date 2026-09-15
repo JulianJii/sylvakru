@@ -400,11 +400,10 @@ class _ManageMusicFoldersState extends State<ManageMusicFolders> {
     return true;
   }
 
-  void _addFolder(BuildContext context) async {
-    String? result;
-
-    if (isTV) {
-      result = await showAnimationDialog(
+  // Android 上 DocumentsUI 可能被裁剪，SAF 选目录会直接失败，改用应用内目录浏览器。
+  Future<String?> _pickFolder(BuildContext context) {
+    if (Platform.isAndroid || isTV) {
+      return showAnimationDialog(
         context: context,
         child: SizedBox(
           height: MediaQuery.heightOf(context) * 0.8,
@@ -412,9 +411,12 @@ class _ManageMusicFoldersState extends State<ManageMusicFolders> {
           child: TvDirPicker(),
         ),
       );
-    } else {
-      result = await FilePicker.getDirectoryPath();
     }
+    return FilePicker.getDirectoryPath();
+  }
+
+  void _addFolder(BuildContext context) async {
+    String? result = await _pickFolder(context);
 
     if (result == null || !context.mounted) {
       return;
@@ -439,19 +441,7 @@ class _ManageMusicFoldersState extends State<ManageMusicFolders> {
   }
 
   void _addFolders(BuildContext context) async {
-    String? result;
-    if (isTV) {
-      result = await showAnimationDialog(
-        context: context,
-        child: SizedBox(
-          height: MediaQuery.heightOf(context) * 0.8,
-          width: 300,
-          child: TvDirPicker(),
-        ),
-      );
-    } else {
-      result = await FilePicker.getDirectoryPath();
-    }
+    String? result = await _pickFolder(context);
 
     if (result == null || !context.mounted) {
       return;
@@ -462,11 +452,16 @@ class _ManageMusicFoldersState extends State<ManageMusicFolders> {
 
     Directory root = Directory(result);
 
-    List<String> pathList = root
-        .listSync(recursive: true)
-        .whereType<Directory>()
-        .map((d) => d.path)
-        .toList();
+    List<String> pathList = [];
+    try {
+      pathList = root
+          .listSync(recursive: true)
+          .whereType<Directory>()
+          .map((d) => d.path)
+          .toList();
+    } catch (e) {
+      // 个别子目录可能无权限读取，忽略它们，至少把已选目录加进去。
+    }
 
     pathList.insert(0, result);
 

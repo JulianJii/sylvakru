@@ -12,7 +12,9 @@ class TvDirPicker extends StatefulWidget {
 }
 
 class _TvDirPickerState extends State<TvDirPicker> {
-  final String root = '/storage/emulated/0';
+  // root 为 /storage，可进入外置存储卡目录；home 为默认打开的目录。
+  final String root = '/storage';
+  final String home = '/storage/emulated/0';
   String currentPath = '/storage/emulated/0';
   List<String> directories = [];
   bool isLoading = false;
@@ -23,14 +25,19 @@ class _TvDirPickerState extends State<TvDirPicker> {
   }
 
   Future<List<String>> listDirectories(String path) async {
-    Directory top = Directory(path);
-    // Keep only directories
-    final directories = await top
-        .list()
-        .where((f) => f is Directory)
-        .map((f) => f.path)
-        .toList();
-    return directories;
+    try {
+      Directory top = Directory(path);
+      // Keep only directories
+      final directories = await top
+          .list()
+          .where((f) => f is Directory)
+          .map((f) => f.path)
+          .toList();
+      return directories;
+    } catch (e) {
+      // 个别目录可能无权限读取（如未授予所有文件访问权限时的 Android 目录）。
+      return [];
+    }
   }
 
   void loadDirectories(String path) async {
@@ -68,7 +75,9 @@ class _TvDirPickerState extends State<TvDirPicker> {
                 icon: Icon(Icons.arrow_back_ios_rounded),
               ),
               Text(
-                currentPath == root ? root : currentPath.split('/').last,
+                currentPath == root || currentPath == home
+                    ? currentPath
+                    : currentPath.split('/').last,
                 style: .new(fontWeight: .bold, fontSize: 18),
               ),
             ],
