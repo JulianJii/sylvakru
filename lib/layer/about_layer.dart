@@ -56,7 +56,7 @@ class _AboutLayerState extends State<AboutLayer> {
   }
 
   void openGitHub() {
-    launchUrl(Uri.parse("https://github.com/AfalpHy/sylvakru"));
+    launchUrl(Uri.parse("https://github.com/jessejii/sylvakru"));
   }
 
   Widget buildTile({

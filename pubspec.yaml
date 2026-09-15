@@ -127,7 +127,10 @@ dev_dependencies:
 
   drift_dev: ^2.35.0
   build_runner: ^2.16.1
-
+  #图标生成
+  flutter_launcher_icons: ^0.14.4
+  #splash生成
+  flutter_native_splash: ^2.4.8
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -180,8 +183,6 @@ icons_launcher:
   platforms:
     android:
       enable: true
-      adaptive_background_image: "app_icons/background.png"
-      adaptive_foreground_image: "app_icons/android.png"
     macos:
       enable: true
     linux:
@@ -190,3 +191,5 @@ icons_launcher:
     windows:
       image_path: "app_icons/win_linux.png"
       enable: true
+    web:
+      enable: false

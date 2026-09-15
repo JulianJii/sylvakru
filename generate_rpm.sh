@@ -60,7 +60,7 @@ Version:        $APP_VERSION
 Release:        1
 Summary:        $APP_NAME Desktop Application
 License:        Proprietary
-URL:            https://github.com/AfalpHy/sylvakru
+URL:            https://github.com/jessejii/sylvakru
 BuildArch:      x86_64
 
 Requires:       $DEPENDS
