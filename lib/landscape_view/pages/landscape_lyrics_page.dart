@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:smooth_corner/smooth_corner.dart';
 import 'package:sylvakru/base/audio_handler.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/app.dart';
@@ -14,9 +15,11 @@ import 'package:sylvakru/base/data/setting.dart';
 import 'package:sylvakru/landscape_view/speaker.dart';
 import 'package:sylvakru/landscape_view/title_bar.dart';
 import 'package:sylvakru/landscape_view/volume_bar.dart';
+import 'package:sylvakru/layer/lyrics_page_layer.dart';
 import 'package:sylvakru/base/widgets/lyric_list_view.dart';
 import 'package:sylvakru/base/widgets/seekbar.dart';
 import 'package:sylvakru/base/my_audio_metadata.dart';
+import 'package:sylvakru/base/utils/dynamic_lyrics_page_route.dart';
 import 'package:sylvakru/base/utils/metadata_utils.dart';
 import 'package:text_scroll/text_scroll.dart';
 
@@ -31,10 +34,21 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
   Timer? immersiveModeTimer;
   final ValueNotifier<bool> immersiveModeNotifier = ValueNotifier(false);
 
+  final dragOffsetNotifier = ValueNotifier(0.0);
+
+  final draggingNotifier = ValueNotifier(false);
+
+  int _animationDuration = 0;
+
+  Timer? concealRouteTimer;
+
   @override
   void dispose() {
     immersiveModeTimer?.cancel();
+    concealRouteTimer?.cancel();
     immersiveModeNotifier.dispose();
+    dragOffsetNotifier.dispose();
+    draggingNotifier.dispose();
     super.dispose();
   }
 
@@ -65,10 +79,97 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
           child: child,
         );
       },
-      child: immersiveWideLayoutNotifier.value
-          ? content(pageWidth, pageHight)
-          : SafeArea(child: content(pageWidth, pageHight)),
+      child: GestureDetector(
+        // 移动端横屏靠下滑关闭歌词页；桌面端不需要，手势回调整体置 null。
+        onVerticalDragStart: isMobile ? _dragStart : null,
+        onVerticalDragUpdate: isMobile
+            ? (details) => _dragUpdate(details.delta.dy, pageHight)
+            : null,
+        onVerticalDragEnd: isMobile
+            ? (details) => _dragEnd(details.primaryVelocity ?? 0, pageHight)
+            : null,
+        onVerticalDragCancel: isMobile ? _resetDragOffset : null,
+        child: ValueListenableBuilder(
+          valueListenable: dragOffsetNotifier,
+          builder: (context, value, child) {
+            return AnimatedContainer(
+              duration: Duration(milliseconds: _animationDuration),
+              curve: Curves.easeOutCubic,
+              transform: Matrix4.translationValues(0, value, 0),
+              child: child,
+            );
+          },
+          child: immersiveWideLayoutNotifier.value
+              ? content(pageWidth, pageHight)
+              : SafeArea(child: content(pageWidth, pageHight)),
+        ),
+      ),
     );
+  }
+
+  /// 关闭歌词页，与桌面端标题栏里的关闭按钮保持同一套收尾逻辑。
+  void _closeLyricsPage() {
+    displayLyricsPage = false;
+    Navigator.pop(context);
+  }
+
+  /// 移动端横屏的关闭按钮。这里不能像桌面端标题栏那样跟进沉浸模式：
+  /// 移动端没有 hover 事件，immersiveModeNotifier 置 true 后不会再恢复，
+  /// 按钮一旦被隐藏就再也点不到，所以必须常驻。
+  Widget _mobileCloseButton() {
+    return ValueListenableBuilder(
+      valueListenable: lyricsPageForegroundColor.valueNotifier,
+      builder: (context, value, child) {
+        return IconButton(
+          color: value,
+          onPressed: _closeLyricsPage,
+          icon: ImageIcon(fullscreenExitImage),
+        );
+      },
+    );
+  }
+
+  void _dragStart(DragStartDetails _) {
+    draggingNotifier.value = true;
+    concealRouteTimer?.cancel();
+    final route = ModalRoute.of(context);
+    if (route is DynamicLyricsPageRoute) {
+      route.revealRoutesBelow();
+    }
+  }
+
+  void _dragUpdate(double delta, double pageHight) {
+    _animationDuration = 0;
+    dragOffsetNotifier.value = (dragOffsetNotifier.value + delta).clamp(
+      0.0,
+      pageHight,
+    );
+  }
+
+  void _dragEnd(double velocity, double pageHight) {
+    if (dragOffsetNotifier.value * 3 > pageHight || velocity > 500) {
+      _closeLyricsPage();
+      return;
+    }
+    _resetDragOffset();
+  }
+
+  /// 未达阈值则回弹复位；动画结束后再恢复下层路由的不透明，
+  /// 否则回弹过程中下层会一闪而过。
+  void _resetDragOffset() {
+    _animationDuration = 250;
+    dragOffsetNotifier.value = 0.0;
+    concealRouteTimer?.cancel();
+    concealRouteTimer = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) {
+        return;
+      }
+      draggingNotifier.value = false;
+      final route = ModalRoute.of(context);
+      if (route is DynamicLyricsPageRoute) {
+        route.concealRoutesBelow();
+      }
+    });
   }
 
   Widget content(double pageWidth, double pageHight) {
@@ -94,8 +195,20 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
           coverArtSize = min(coverArtSize, max(0, pageHight - reserved));
         }
 
-        return Material(
-          color: Colors.transparent,
+        return ValueListenableBuilder(
+          valueListenable: draggingNotifier,
+          builder: (context, value, child) {
+            // 拖动关闭时给页面加圆角，与竖屏播放页保持同一手感。
+            return Material(
+              color: Colors.transparent,
+              shape: SmoothRectangleBorder(
+                smoothness: 1,
+                borderRadius: .circular(value ? dragCornerRadius : 0),
+              ),
+              clipBehavior: value ? .antiAliasWithSaveLayer : .antiAlias,
+              child: child,
+            );
+          },
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -141,21 +254,13 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
                                 fromHeroContext,
                                 toHeroContext,
                               ) => FittedBox(child: toHeroContext.widget),
-                          child: GestureDetector(
-                            onVerticalDragEnd: (details) {
-                              if (isMobile &&
-                                  (details.primaryVelocity ?? 0) > 500) {
-                                Navigator.pop(context);
-                              }
-                            },
-                            child: CoverArtWidget(
-                              size: coverArtSize,
-                              borderRadius: coverArtSize * 0.05,
-                              picture: currentSong?.picture,
-                              elevation: 15,
-                              color: colorManager
-                                  .getSpecificLyricsPageCoverArtBaseColor(),
-                            ),
+                          child: CoverArtWidget(
+                            size: coverArtSize,
+                            borderRadius: coverArtSize * 0.05,
+                            picture: currentSong?.picture,
+                            elevation: 15,
+                            color: colorManager
+                                .getSpecificLyricsPageCoverArtBaseColor(),
                           ),
                         ),
                         if (pageHight >= 600) ...[
@@ -265,6 +370,15 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
                     },
                     child: TitleBar(isMainPage: false),
                   ),
+                ),
+
+              if (isMobile)
+                Positioned(
+                  // 这里的 context 位于 SafeArea 内部（padding 已被移除，不会重复计算）；
+                  // 沉浸模式下没有 SafeArea，则用刘海/状态栏的 padding 让开。
+                  left: MediaQuery.paddingOf(context).left + 20,
+                  top: MediaQuery.paddingOf(context).top + 20,
+                  child: _mobileCloseButton(),
                 ),
             ],
           ),
