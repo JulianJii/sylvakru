@@ -75,14 +75,13 @@ jobs:
 
       - run: flutter build apk --release --split-per-abi
 
-      # release 已存在则覆盖上传同名 APK，不存在则新建。
+      # release 已存在则删除后重建（完整覆盖资源和说明），不存在则新建。
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.ver.outputs.tag }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" --clobber build/app/outputs/flutter-apk/*.apk
-          else
-            gh release create "$TAG" --generate-notes build/app/outputs/flutter-apk/*.apk
+            gh release delete "$TAG" --yes
           fi
+          gh release create "$TAG" --generate-notes build/app/outputs/flutter-apk/*.apk

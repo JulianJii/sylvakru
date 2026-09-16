@@ -147,6 +147,8 @@ class MyAudioHandler extends BaseAudioHandler {
     // avoid reading .lrc files
     (_player.platform as NativePlayer).setProperty('sub-auto', 'no');
 
+    _setupAudioOutput();
+
     _player.stream.error.listen((onData) {
       logger.output("player error:$onData");
     });
@@ -199,6 +201,31 @@ class MyAudioHandler extends BaseAudioHandler {
     //     return;
     //   }
     // });
+  }
+
+  /// 修正 Android 上的音频输出后端。
+  ///
+  /// media_kit 在 Android 上把 mpv 的 `ao` 写死成 `opensles`
+  /// （见 media_kit `native/player/real.dart` 的 properties 表），还会把
+  /// "模拟器且 API <= 25" 判成 `ao=null`（完全静音）。
+  /// 而 `ao_opensles` 只支持 2 声道，遇到设备不接受的采样率/格式时直接返回
+  /// `SL_RESULT_PARAMETER_INVALID` 且不做重协商，mpv 于是认定"音频输出初始化失败"，
+  /// 表现就是低端设备上整首歌一点声音都没有；VLC 走 AudioTrack/AAudio，
+  /// 由 AudioFlinger 负责重采样与声道映射，所以看起来"什么都没做却能播"。
+  ///
+  /// 这里改回 mpv 自己的后端优先级：
+  /// - `aaudio`（Android 8.0+）：mpv 在维护的现代后端，会按设备能力重新协商
+  ///   声道/格式，初始化失败也能干净地回退到下一个驱动；
+  /// - `opensles`：老设备兜底，保持原有行为。
+  ///
+  /// 不把 `audiotrack` 放进列表：它要求 JavaVM 事先通过 `av_jni_set_java_vm`
+  /// 注册给 FFmpeg，而 media_kit 打包的 libmpv.so / libmediakitandroidhelper.so
+  /// 都没有做这件事（已核对二进制），放进去只会让每次播放都多一条
+  /// "No Java virtual machine has been registered" 报错日志。
+  void _setupAudioOutput() {
+    if (Platform.isAndroid) {
+      (_player.platform as NativePlayer).setProperty('ao', 'aaudio,opensles');
+    }
   }
 
   void updateIsPlaying(bool isPlaying) {
