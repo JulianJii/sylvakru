@@ -422,7 +422,7 @@ extension _SongListPage on _SongListState {
     return ListTile(
       leading: leading,
       title: Text(text),
-      minTileHeight: 58,
+      minTileHeight: 56,
       onTap: onTap,
     );
   }

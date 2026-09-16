@@ -30,6 +30,7 @@ import 'dart:async';
 import 'package:sylvakru/portrait_view/sleep_timer.dart';
 
 late AudioSession _session;
+bool _sessionActive = false;
 
 late MyAudioHandler audioHandler;
 
@@ -63,7 +64,8 @@ Future<void> initAudioService() async {
   try {
     _session = await AudioSession.instance;
     await _session.configure(AudioSessionConfiguration.music());
-    await _session.setActive(true);
+    // 不要在这里 setActive(true)：应用启动时还没有播放任何内容，
+    // 抢占音频焦点会暂停其他 App 的播放。
 
     _session.becomingNoisyEventStream.listen((_) {
       audioHandler.pause();
@@ -76,6 +78,18 @@ Future<void> initAudioService() async {
     });
   } catch (e, stack) {
     logger.output("AudioSession configure failed: $e\n$stack");
+  }
+}
+
+/// 幂等地切换音频会话的激活状态。
+/// 只有真正开始播放时才激活，暂停/停止时释放，交还音频焦点。
+Future<void> setSessionActive(bool active) async {
+  if (_sessionActive == active) return;
+  try {
+    await _session.setActive(active);
+    _sessionActive = active;
+  } catch (e, stack) {
+    logger.output("AudioSession setActive($active) failed: $e\n$stack");
   }
 }
 
@@ -483,6 +497,7 @@ class MyAudioHandler extends BaseAudioHandler {
     _player.stop();
     updateIsPlaying(false);
     updatePlaybackState(stop: true);
+    setSessionActive(false);
     _positionTimer?.cancel();
     _positionTimer = null;
 
@@ -599,6 +614,9 @@ class MyAudioHandler extends BaseAudioHandler {
 
     isLoading = true;
     try {
+      if (isPlayingNotifier.value) {
+        await setSessionActive(true);
+      }
       if (currentSong.cacheExist) {
         await _player.open(
           Media(currentSong.cachePath!, start: start),
@@ -675,7 +693,8 @@ class MyAudioHandler extends BaseAudioHandler {
   @override
   Future<void> play() async {
     if (playQueue.isEmpty) return;
-    _player.play();
+    await setSessionActive(true);
+    await _player.play();
 
     updateIsPlaying(true);
     updatePlaybackState();
@@ -693,6 +712,7 @@ class MyAudioHandler extends BaseAudioHandler {
     _positionTimer?.cancel();
     _positionTimer = null;
     _positionState.writeAsString(getPosition().inMilliseconds.toString());
+    await setSessionActive(false);
   }
 
   @override
@@ -703,6 +723,7 @@ class MyAudioHandler extends BaseAudioHandler {
     _positionTimer?.cancel();
     _positionTimer = null;
     _positionState.writeAsString(Duration.zero.inMilliseconds.toString());
+    await setSessionActive(false);
   }
 
   @override
