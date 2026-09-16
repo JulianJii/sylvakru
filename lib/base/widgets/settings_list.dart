@@ -74,9 +74,9 @@ class _SettingsListState extends State<SettingsList> {
                   subtitle: Text(
                     l10n.settingCount(
                       Platform.isAndroid
-                          ? 15
+                          ? 17
                           : Platform.isIOS
-                          ? 14
+                          ? 16
                           : 13,
                     ),
                     style: TextStyle(fontSize: 12),
@@ -131,6 +131,14 @@ class _SettingsListState extends State<SettingsList> {
 
         if (isMobile && !isTV)
           sliverBox(paddingIfNeed(isLandscape, vibrationListTile(l10n))),
+
+        if (isMobile && !isTV)
+          sliverBox(
+            paddingIfNeed(isLandscape, mixWithOtherAppsListTile(l10n)),
+          ),
+
+        if (isMobile && !isTV)
+          sliverBox(paddingIfNeed(isLandscape, autoRotateListTile(l10n))),
 
         if (isMobile)
           sliverBox(
@@ -521,6 +529,40 @@ class _SettingsListState extends State<SettingsList> {
           valueNotifier: vibrationOnNoitifier,
           onToggleCallBack: () {
             setting.save();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget mixWithOtherAppsListTile(AppLocalizations l10n) {
+    return ListTile(
+      leading: ImageIcon(speakerImage, size: iconSize),
+      title: Text(l10n.mixWithOtherApps),
+      trailing: SizedBox(
+        width: 50,
+        child: MySwitch(
+          valueNotifier: mixWithOtherAppsNotifier,
+          onToggleCallBack: () {
+            setting.save();
+            applyAudioMixing();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget autoRotateListTile(AppLocalizations l10n) {
+    return ListTile(
+      leading: Icon(Icons.screen_rotation, size: iconSize),
+      title: Text(l10n.autoRotate),
+      trailing: SizedBox(
+        width: 50,
+        child: MySwitch(
+          valueNotifier: autoRotateNotifier,
+          onToggleCallBack: () {
+            setting.save();
+            applyScreenRotation();
           },
         ),
       ),

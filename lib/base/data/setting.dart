@@ -7,6 +7,7 @@ import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/base/widgets/lyric_list_view.dart';
 import 'package:sylvakru/base/app.dart';
+import 'package:sylvakru/base/services/system_ui_service.dart';
 import 'package:sylvakru/base/utils/path.dart';
 import 'package:sylvakru/base/widgets/manage_music_folders.dart';
 
@@ -91,6 +92,11 @@ class Setting {
     exitOnCloseNotifier.value =
         json['exitOnClose'] as bool? ?? exitOnCloseNotifier.value;
 
+    mixWithOtherAppsNotifier.value =
+        json['mixWithOtherApps'] as bool? ?? false;
+
+    autoRotateNotifier.value = json['autoRotate'] as bool? ?? true;
+
     recursiveScanNotifier.value = json['recursiveScan'] as bool? ?? false;
   }
 
@@ -119,6 +125,9 @@ class Setting {
 
         'lyricsFontSizeOffset': lyricsFontSizeOffsetNotifier.value,
         'exitOnClose': exitOnCloseNotifier.value,
+
+        'mixWithOtherApps': mixWithOtherAppsNotifier.value,
+        'autoRotate': autoRotateNotifier.value,
 
         'recursiveScan': recursiveScanNotifier.value,
       }),

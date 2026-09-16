@@ -284,6 +284,18 @@ abstract class AppLocalizations {
   /// **'Vibration'**
   String get vibration;
 
+  /// No description provided for @mixWithOtherApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Play Along with Other Apps'**
+  String get mixWithOtherApps;
+
+  /// No description provided for @autoRotate.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-rotate Screen'**
+  String get autoRotate;
+
   /// No description provided for @library.
   ///
   /// In en, this message translates to:

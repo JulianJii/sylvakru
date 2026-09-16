@@ -32,6 +32,10 @@ import 'package:sylvakru/portrait_view/sleep_timer.dart';
 late AudioSession _session;
 bool _sessionActive = false;
 
+/// 是否允许和其他 App 一起出声。Android 靠不申请音频焦点实现（焦点一旦被抢，
+/// 对方的播放会被系统要求停掉）；iOS 靠 mixWithOthers 这个 category 选项。
+final mixWithOtherAppsNotifier = ValueNotifier(false);
+
 late MyAudioHandler audioHandler;
 
 List<MyAudioMetadata> playQueue = [];
@@ -63,7 +67,7 @@ Future<void> initAudioService() async {
 
   try {
     _session = await AudioSession.instance;
-    await _session.configure(AudioSessionConfiguration.music());
+    await configureAudioSession();
     // 不要在这里 setActive(true)：应用启动时还没有播放任何内容，
     // 抢占音频焦点会暂停其他 App 的播放。
 
@@ -81,10 +85,38 @@ Future<void> initAudioService() async {
   }
 }
 
+Future<void> configureAudioSession() async {
+  try {
+    await _session.configure(
+      mixWithOtherAppsNotifier.value
+          ? AudioSessionConfiguration.music().copyWith(
+              avAudioSessionCategoryOptions:
+                  AVAudioSessionCategoryOptions.mixWithOthers,
+            )
+          : const AudioSessionConfiguration.music(),
+    );
+  } catch (e, stack) {
+    logger.output("AudioSession configure failed: $e\n$stack");
+  }
+}
+
+/// 切换「和其他 App 一起出声」后重新应用：iOS 要重设 category 选项，
+/// Android 要按需释放或重新申请音频焦点。
+Future<void> applyAudioMixing() async {
+  await configureAudioSession();
+  if (mixWithOtherAppsNotifier.value) {
+    await setSessionActive(false);
+  } else if (isPlayingNotifier.value) {
+    await setSessionActive(true);
+  }
+}
+
 /// 幂等地切换音频会话的激活状态。
 /// 只有真正开始播放时才激活，暂停/停止时释放，交还音频焦点。
 Future<void> setSessionActive(bool active) async {
   if (_sessionActive == active) return;
+  // 允许和其他 App 一起出声时不申请焦点，否则对方会被迫停播。
+  if (active && mixWithOtherAppsNotifier.value) return;
   try {
     await _session.setActive(active);
     _sessionActive = active;

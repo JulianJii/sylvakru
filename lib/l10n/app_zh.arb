@@ -30,6 +30,8 @@
   "sleepTimer": "定时关闭",
   "pauseAfterCurrentTrack": "播完整首歌再关闭",
   "vibration": "振动",
+  "mixWithOtherApps": "允许和其他 App 一起出声",
+  "autoRotate": "重力感应旋屏",
   "library": "音乐库",
   "select": "批量选择",
   "sortSongs": "歌曲排序",

@@ -102,6 +102,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vibration => 'Vibration';
 
   @override
+  String get mixWithOtherApps => 'Play Along with Other Apps';
+
+  @override
+  String get autoRotate => 'Auto-rotate Screen';
+
+  @override
   String get library => 'Library';
 
   @override

@@ -102,6 +102,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get vibration => '振动';
 
   @override
+  String get mixWithOtherApps => '允许和其他 App 一起出声';
+
+  @override
+  String get autoRotate => '重力感应旋屏';
+
+  @override
   String get library => '音乐库';
 
   @override

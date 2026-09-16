@@ -30,6 +30,8 @@
   "sleepTimer": "Sleep Timer",
   "pauseAfterCurrentTrack": "Pause After Current Track",
   "vibration": "Vibration",
+  "mixWithOtherApps": "Play Along with Other Apps",
+  "autoRotate": "Auto-rotate Screen",
   "library": "Library",
   "select": "Select",
   "sortSongs": "Sort Songs",

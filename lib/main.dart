@@ -12,6 +12,7 @@ import 'package:sylvakru/base/services/keyboard.dart';
 import 'package:sylvakru/base/services/my_tray_listener.dart';
 import 'package:sylvakru/base/services/my_window_listener.dart';
 import 'package:sylvakru/base/services/single_instance.dart';
+import 'package:sylvakru/base/services/system_ui_service.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/l10n/generated/app_localizations_en.dart';
 import 'package:sylvakru/base/data/loader.dart';
@@ -66,6 +67,10 @@ Future<void> main() async {
   await initAudioService();
 
   await Loader.init();
+  // 这两项都要等 setting.json 读出来才生效，initAudioService 跑在设置加载之前，
+  // 所以音频会话和屏幕方向都按最终设置再应用一遍。
+  await configureAudioSession();
+  await applyScreenRotation();
   await LiquidGlassWidgets.initialize();
   if (isTV) {
     FocusManager.instance.highlightStrategy =
