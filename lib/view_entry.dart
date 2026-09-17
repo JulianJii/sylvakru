@@ -233,6 +233,7 @@ class _ViewEntryState extends State<ViewEntry> with WidgetsBindingObserver {
                               ),
                               _buildSourceCard(thisSourceType: .navidrome),
                               _buildSourceCard(thisSourceType: .emby),
+                              _buildSourceCard(thisSourceType: .feiniu),
                             ]),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
@@ -265,6 +266,11 @@ class _ViewEntryState extends State<ViewEntry> with WidgetsBindingObserver {
                                 Expanded(
                                   child: _buildSourceCard(
                                     thisSourceType: .emby,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildSourceCard(
+                                    thisSourceType: .feiniu,
                                   ),
                                 ),
                               ],
@@ -355,7 +361,10 @@ class _ViewEntryState extends State<ViewEntry> with WidgetsBindingObserver {
           mouseCursor: SystemMouseCursors.click,
           onTap: () async {
             sourceType = thisSourceType;
-            isStreamSource = sourceType == .navidrome || sourceType == .emby;
+            isStreamSource =
+                sourceType == .navidrome ||
+                sourceType == .emby ||
+                sourceType == .feiniu;
             isNotStreamSource = !isStreamSource;
             library = Library();
             if (isNotStreamSource) {
