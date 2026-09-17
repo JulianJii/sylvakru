@@ -397,7 +397,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.afalphy.sylvakru.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/sylvakru.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/sylvakru";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MyMusic.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MyMusic";
 			};
 			name = Debug;
 		};
@@ -411,7 +411,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.afalphy.sylvakru.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/sylvakru.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/sylvakru";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MyMusic.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MyMusic";
 			};
 			name = Release;
 		};
@@ -425,7 +425,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.afalphy.sylvakru.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/sylvakru.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/sylvakru";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MyMusic.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MyMusic";
 			};
 			name = Profile;
 		};
@@ -497,7 +497,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.afalphy.sylvakru;
-				PRODUCT_NAME = Sylvakru;
+				PRODUCT_NAME = MyMusic;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 			};
@@ -635,7 +635,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.afalphy.sylvakru;
-				PRODUCT_NAME = Sylvakru;
+				PRODUCT_NAME = MyMusic;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -661,7 +661,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.afalphy.sylvakru;
-				PRODUCT_NAME = Sylvakru;
+				PRODUCT_NAME = MyMusic;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 			};
