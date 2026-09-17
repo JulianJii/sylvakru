@@ -43,6 +43,9 @@ function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_options(${TARGET} PRIVATE /EHsc)
   target_compile_definitions(${TARGET} PRIVATE "_HAS_EXCEPTIONS=0")
   target_compile_definitions(${TARGET} PRIVATE "$<$<CONFIG:Debug>:_DEBUG>")
+  # ponytail: permission_handler_windows 等插件仍用 C++/WinRT 的 <experimental/coroutine>，
+  # MSVC 14.51+ 起该头文件直接 static_assert 报错。等插件升到 C++20 <coroutine> 后删掉这行。
+  target_compile_definitions(${TARGET} PRIVATE "_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS=")
 endfunction()
 
 # Flutter library and tool build rules.
