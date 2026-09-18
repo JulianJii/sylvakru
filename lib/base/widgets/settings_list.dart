@@ -30,6 +30,7 @@ import 'package:sylvakru/base/data/library.dart';
 import 'package:sylvakru/base/data/loader.dart';
 import 'package:sylvakru/portrait_view/sleep_timer.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
+import 'package:sylvakru/online_music/online_music_page.dart';
 import 'package:sylvakru/base/widgets/my_switch.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -333,6 +334,21 @@ class _SettingsListState extends State<SettingsList> {
                             config.save();
                           },
                         ),
+                      const Divider(),
+                      ListTile(
+                        leading: Icon(
+                          Icons.cloud,
+                          size: 30,
+                          color: iconColor.value,
+                        ),
+                        title: Text("网络歌曲"),
+                        onTap: () {
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                          }
+                          openOnlineMusicPage(context);
+                        },
+                      ),
                     ],
                   );
                 },

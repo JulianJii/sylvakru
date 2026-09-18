@@ -88,6 +88,8 @@ dependencies:
   intl: any
   material_ui: any
   cupertino_ui: any
+  shared_preferences: ^2.5.5
+  background_downloader: ^9.6.2
 dependency_overrides:
   media_kit_libs_windows_audio:
     git:
