@@ -36,6 +36,9 @@ class _PlaylistsLayerState extends CollectionListState {
       AppLocalizations.of(context).playlistCount;
 
   @override
+  String get label => 'playlists';
+
+  @override
   void updateCurrentList() {
     preparing = false;
     final value = textController.text;

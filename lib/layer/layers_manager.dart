@@ -290,6 +290,18 @@ class LayersManager {
       rootKey = foldersKey;
       visibleNotifier = foldersVisibleNotifier;
       detailLayer = SingleFolderLayer(folder: detail);
+    } else if (label == 'home') {
+      rootKey = homeKey;
+      visibleNotifier = homeVisibleNotifier;
+      if (detail is Album) {
+        detailLayer = SingleAlbumLayer(album: detail, isHomeDetaile: true);
+      } else {
+        detailLayer = SinglePlaylistLayer(
+          playlist: detail,
+          isRoot: false,
+          isHomeDetaile: true,
+        );
+      }
     } else if (label == 'playlists') {
       rootKey = playlistsKey;
       visibleNotifier = playlistsVisibleNotifier;
@@ -356,6 +368,9 @@ class LayersManager {
     } else if (label == 'folders') {
       rootKey = foldersKey;
       visibleNotifier = foldersVisibleNotifier;
+    } else if (label == 'home') {
+      rootKey = homeKey;
+      visibleNotifier = homeVisibleNotifier;
     } else if (label == 'playlists') {
       rootKey = playlistsKey;
       visibleNotifier = playlistsVisibleNotifier;

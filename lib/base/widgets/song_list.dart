@@ -37,6 +37,7 @@ import 'package:sylvakru/landscape_view/title_bar.dart';
 import 'package:sylvakru/layer/albums_layer.dart';
 import 'package:sylvakru/layer/artists_layer.dart';
 import 'package:sylvakru/layer/folders_layer.dart';
+import 'package:sylvakru/layer/home_layer.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
 import 'package:sylvakru/layer/playlists_layer.dart';
 import 'package:sylvakru/portrait_view/my_app_bar.dart';
@@ -56,6 +57,8 @@ class SongList extends StatefulWidget {
 
   final bool isRoot;
 
+  final bool isHomeDetail;
+
   const SongList({
     super.key,
     this.playlist,
@@ -65,6 +68,7 @@ class SongList extends StatefulWidget {
     this.isRanking = false,
     this.isRecently = false,
     this.isRoot = true,
+    this.isHomeDetail = false,
   });
 
   @override
@@ -271,6 +275,13 @@ class _SongListState extends State<SongList> {
       library.changeNotifier.addListener(updateSongList);
     }
 
+    if (widget.isHomeDetail) {
+      rootVisibleNotifier = homeVisibleNotifier;
+      rootLabel = 'home';
+      backToRoot = () {
+        layersManager.popDetail('home');
+      };
+    }
     rootVisibleNotifier?.addListener(updateHideOthers);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -323,7 +334,7 @@ class _SongListState extends State<SongList> {
                 : Hero(
                     tag:
                         (picture?.id ?? '') +
-                        (album != null ? rootLabel : '') +
+                        rootLabel +
                         getTitleText(AppLocalizations.of(context)),
                     transitionOnUserGestures: true,
                     flightShuttleBuilder:
