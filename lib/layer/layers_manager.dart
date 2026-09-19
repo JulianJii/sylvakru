@@ -18,6 +18,7 @@ import 'package:sylvakru/layer/albums_layer.dart';
 import 'package:sylvakru/layer/artists_layer.dart';
 import 'package:sylvakru/layer/folders_layer.dart';
 import 'package:sylvakru/layer/font_picker_layer.dart';
+import 'package:sylvakru/layer/home_layer.dart';
 import 'package:sylvakru/layer/license_layer.dart';
 import 'package:sylvakru/layer/playlists_layer.dart';
 import 'package:sylvakru/layer/ranking_layer.dart';
@@ -134,6 +135,8 @@ class LayersManager {
         return AlbumsLayer(key: GlobalKey());
       } else if (label == 'folders') {
         return FoldersLayer(key: GlobalKey());
+      } else if (label == 'home') {
+        return HomeLayer(key: GlobalKey());
       } else if (label == 'songs') {
         return SongsLayer(key: GlobalKey());
       } else if (label == 'ranking') {
@@ -417,7 +420,7 @@ class LayersManager {
     } else if (layer is RecentlyLayer) {
       return getFirstSong(history.recentlySongList)?.picture;
     } else if (layer is SinglePlaylistLayer) {
-      return layer.playlist.getCoverSong()?.picture;
+      return layer.playlist.picture;
     } else {
       return currentSongNotifier.value?.picture;
     }

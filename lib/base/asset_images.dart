@@ -28,6 +28,7 @@ const AssetImage fullscreenExitImage = AssetImage(
 );
 const AssetImage fullscreenImage = AssetImage('assets/images/fullscreen.png');
 const AssetImage gridImage = AssetImage('assets/images/grid.png');
+const AssetImage homeImage = AssetImage('assets/images/home.png');
 const AssetImage iconImage = AssetImage('assets/images/icon.png');
 const AssetImage infoImage = AssetImage('assets/images/info.png');
 const AssetImage languageImage = AssetImage('assets/images/language.png');
