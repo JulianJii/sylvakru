@@ -299,7 +299,7 @@ class LayersManager {
       visibleNotifier = playlistsVisibleNotifier;
       detailLayer = SinglePlaylistLayer(playlist: detail, isRoot: false);
     } else {
-      rootKey = settingsKey;
+      rootKey = settingsNavigatorKey;
       visibleNotifier = settingsVisibleNotifier;
       if (detail == 'about') {
         detailLayer = AboutLayer();
