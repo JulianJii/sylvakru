@@ -44,7 +44,7 @@ class _DownloadPanel extends StatelessWidget {
               ),
               const _DirectoryBar(),
               const SizedBox(height: 12),
-              const Divider(height: 1, color: OnlinePalette.surfaceAlt),
+              Divider(height: 1, color: OnlinePalette.surfaceAlt),
               const SizedBox(height: 8),
               Flexible(child: _buildList()),
               const SizedBox(height: 12),
@@ -61,7 +61,7 @@ class _DownloadPanel extends StatelessWidget {
       valueListenable: onlineDownloader.entries,
       builder: (context, entries, _) {
         if (entries.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -71,14 +71,14 @@ class _DownloadPanel extends StatelessWidget {
                   color: OnlinePalette.textFaint,
                 ),
                 SizedBox(height: 12),
-                Text(
-                  '还没有下载任务',
-                  style: TextStyle(color: OnlinePalette.textDim),
-                ),
+                Text('还没有下载任务', style: TextStyle(color: OnlinePalette.textDim)),
                 SizedBox(height: 6),
                 Text(
                   '点搜索结果右侧的下载按钮即可保存到下载目录',
-                  style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: OnlinePalette.textFaint,
+                  ),
                 ),
               ],
             ),
@@ -105,7 +105,7 @@ class _DirectoryBar extends StatelessWidget {
       builder: (context, dir, _) {
         return Row(
           children: [
-            const Icon(
+            Icon(
               Icons.folder_open_rounded,
               size: 16,
               color: OnlinePalette.textFaint,
@@ -116,10 +116,7 @@ class _DirectoryBar extends StatelessWidget {
                 onlineDownloader.directoryDisplay,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: OnlinePalette.textDim,
-                ),
+                style: TextStyle(fontSize: 12, color: OnlinePalette.textDim),
               ),
             ),
             TextButton(
@@ -228,7 +225,7 @@ class _EntryRow extends StatelessWidget {
                     iconSize: 18,
                     visualDensity: VisualDensity.compact,
                     onPressed: () => onlineDownloader.cancel(entry.trackId),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: OnlinePalette.textFaint,
                     ),
@@ -239,7 +236,7 @@ class _EntryRow extends StatelessWidget {
                     iconSize: 18,
                     visualDensity: VisualDensity.compact,
                     onPressed: () => onlineDownloader.remove(entry.trackId),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.delete_outline_rounded,
                       color: OnlinePalette.textFaint,
                     ),
@@ -301,7 +298,7 @@ class _Tag extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 11, color: OnlinePalette.textFaint),
+        style: TextStyle(fontSize: 11, color: OnlinePalette.textFaint),
       ),
     );
   }

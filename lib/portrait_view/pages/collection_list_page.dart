@@ -26,7 +26,6 @@ extension _CollectionListPage on CollectionListState {
             );
           },
         ),
-        moreButton(context),
       ],
       // its own Scaffold only to keep the floating action button (playlists)
       // where it used to be
@@ -153,32 +152,6 @@ extension _CollectionListPage on CollectionListState {
             }
 
             showContextMenu(context, items, menuAnchor(buttonContext));
-          },
-        );
-      },
-    );
-  }
-
-  Widget moreButton(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return Builder(
-      builder: (buttonContext) {
-        return IconButton(
-          tooltip: l10n.more,
-          padding: EdgeInsets.zero,
-          visualDensity: VisualDensity.compact,
-          icon: Icon(Icons.more_vert),
-          onPressed: () {
-            tryVibrate();
-
-            showContextMenu(context, [
-              MenuItem(
-                iconData: Icons.settings_outlined,
-                text: l10n.settings,
-                callback: () => layersManager.openSettings(),
-              ),
-            ], menuAnchor(buttonContext));
           },
         );
       },

@@ -424,6 +424,16 @@ class MenuItem {
   MenuItem({this.iconData, this.text, this.callback, this.isDivider = false});
 }
 
+/// Anchor point for popup menus opened from toolbar icon buttons: the bottom
+/// right corner of the button, in global coordinates.
+Offset menuAnchor(BuildContext context) {
+  final box = context.findRenderObject() as RenderBox?;
+  if (box == null) {
+    return Offset.zero;
+  }
+  return box.localToGlobal(box.size.bottomRight(Offset.zero));
+}
+
 void showContextMenu(
   BuildContext context,
   List<MenuItem> items,

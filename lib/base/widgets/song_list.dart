@@ -142,15 +142,6 @@ class _SongListState extends State<SongList> {
 
   bool get isFixed => isMobile || !reorderable;
 
-  // anchor point for popup menus opened from toolbar icon buttons
-  Offset menuAnchor(BuildContext context) {
-    final box = context.findRenderObject() as RenderBox?;
-    if (box == null) {
-      return Offset.zero;
-    }
-    return box.localToGlobal(box.size.bottomRight(Offset.zero));
-  }
-
   void updateHideOthers() {
     setState(() {
       hideOthers = rootVisibleNotifier!.value;

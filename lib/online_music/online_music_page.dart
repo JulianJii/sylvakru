@@ -12,69 +12,104 @@ import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/app.dart';
 import 'package:sylvakru/base/audio_handler.dart';
 import 'package:sylvakru/base/my_audio_metadata.dart';
+import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/services/lyric.dart';
 import 'package:sylvakru/base/services/logger.dart';
 import 'package:sylvakru/base/utils/media_query.dart';
 import 'package:sylvakru/base/utils/metadata_utils.dart';
+import 'package:sylvakru/online_music/lx_js/lx_js_source.dart';
 import 'package:sylvakru/online_music/online_download.dart';
 import 'package:sylvakru/online_music/online_download_panel.dart';
 import 'package:sylvakru/online_music/online_music_api.dart';
+import 'package:sylvakru/online_music/online_player_detail.dart';
 import 'package:sylvakru/online_music/online_search_history.dart';
 
+/// 在线音乐页的配色。
+///
+/// 全部映射到本地音乐那套全局主题（[ColorManager]），所以页面跟随
+/// vivid / 浅色 / 深色三种主题，而不是自带一套固定的紫色深色皮肤。
 class OnlinePalette {
   const OnlinePalette._();
 
-  static const Color bg = Color(0xFF0F1116);
-  static const Color surface = Color(0xFF171A21);
-  static const Color surfaceAlt = Color(0xFF1E222B);
-  static const Color primary = Color(0xFF7C5CFF);
-  static const Color primaryLight = Color(0xFF9A80FF);
-  static const Color text = Color(0xFFFFFFFF);
-  static const Color textDim = Color(0xFFB8BEC9);
-  static const Color textFaint = Color(0xFF7A828F);
+  /// 语义色（失败 / 成功 / 警告）跟主题无关，保持固定。
   static const Color danger = Color(0xFFF87171);
   static const Color success = Color(0xFF34D399);
   static const Color warn = Color(0xFFFBBF24);
+
+  static bool get _vivid => mainPageThemeNotifier.value == .vivid;
+
+  /// 全屏页要自带不透明底色：vivid 用当前封面主色压暗（本地音乐那层半透明
+  /// 页面色是叠在封面背景上的，这个页面没有那层背景），浅/深色直接用页面色。
+  static Color get bg => _vivid
+      ? Color.alphaBlend(currentCoverArtColor.withAlpha(160), Colors.black)
+      : pageBackgroundColor.value;
+
+  /// 卡片 / 面板底色。深色主题下 `panelColor` 和页面色是同一个值，靠边框区分。
+  static Color get surface => _vivid
+      ? Color.alphaBlend(Colors.white.withAlpha(24), bg)
+      : panelColor.value;
+
+  /// 输入框、次级按钮、分隔线。
+  static Color get surfaceAlt => _vivid
+      ? Color.alphaBlend(Colors.white.withAlpha(48), bg)
+      : searchFieldColor.value;
+
+  /// 强调色：vivid 用封面算出来的对比色（和歌词页同一套），浅/深色用主题高亮色。
+  static Color get primary =>
+      _vivid ? contrastColorTheme.accent : highlightTextColor.value;
+  static Color get primaryLight => primary;
+
+  /// 压在强调色上的前景色，按强调色自身明度取黑或白。
+  static Color get onPrimary =>
+      primary.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+
+  static Color get text =>
+      _vivid ? contrastColorTheme.regular : textColor.value;
+  static Color get textDim => text.withAlpha(190);
+  static Color get textFaint => text.withAlpha(140);
 }
 
 ThemeData buildOnlineTheme() {
-  final base = ThemeData.dark(useMaterial3: true);
+  final isLight = mainPageThemeNotifier.value == .light;
+  final base = ThemeData(
+    brightness: isLight ? Brightness.light : Brightness.dark,
+    useMaterial3: true,
+  );
   return base.copyWith(
     scaffoldBackgroundColor: OnlinePalette.bg,
-    colorScheme: const ColorScheme.dark(
-      primary: OnlinePalette.primary,
-      onPrimary: Colors.white,
-      secondary: OnlinePalette.primaryLight,
-      surface: OnlinePalette.surface,
-      onSurface: OnlinePalette.text,
-      error: OnlinePalette.danger,
-    ),
+    colorScheme:
+        (isLight ? const ColorScheme.light() : const ColorScheme.dark())
+            .copyWith(
+              primary: OnlinePalette.primary,
+              onPrimary: OnlinePalette.onPrimary,
+              secondary: OnlinePalette.primaryLight,
+              surface: OnlinePalette.surface,
+              onSurface: OnlinePalette.text,
+              error: OnlinePalette.danger,
+            ),
     textTheme: base.textTheme
-        .apply(
-          bodyColor: OnlinePalette.text,
-          displayColor: OnlinePalette.text,
-        )
+        .apply(bodyColor: OnlinePalette.text, displayColor: OnlinePalette.text)
         .apply(fontFamily: fontFamilyNotifier.value),
-    iconTheme: const IconThemeData(color: OnlinePalette.textDim),
+    iconTheme: IconThemeData(color: OnlinePalette.textDim),
     dividerColor: OnlinePalette.surfaceAlt,
     sliderTheme: base.sliderTheme.copyWith(
       trackHeight: 3,
       activeTrackColor: OnlinePalette.primary,
-      inactiveTrackColor: Colors.white24,
+      inactiveTrackColor: OnlinePalette.text.withAlpha(60),
       thumbColor: OnlinePalette.primaryLight,
       overlayColor: OnlinePalette.primary.withAlpha(40),
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
     ),
-    snackBarTheme: const SnackBarThemeData(
+    snackBarTheme: SnackBarThemeData(
       backgroundColor: OnlinePalette.surfaceAlt,
       contentTextStyle: TextStyle(color: OnlinePalette.text),
       behavior: SnackBarBehavior.floating,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: OnlinePalette.surface,
-      hintStyle: const TextStyle(color: OnlinePalette.textFaint),
+      fillColor: OnlinePalette.surfaceAlt,
+      hintStyle: TextStyle(color: OnlinePalette.textFaint),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -105,10 +140,7 @@ class OnlineMusicPage extends StatefulWidget {
   State<OnlineMusicPage> createState() => _OnlineMusicPageState();
 }
 
-enum OnlineSearchType {
-  song,
-  playlist,
-}
+enum OnlineSearchType { song, playlist }
 
 class _OnlineMusicPageState extends State<OnlineMusicPage> {
   final TextEditingController _keywordController = TextEditingController();
@@ -128,7 +160,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
 
   String _sourceFilter = 'all';
 
-  /// source -> 可用音质，来自聚合接口的 init.conf。拿不到就退回歌曲自带的。
+  /// source -> 可用音质，来自自定义源脚本的 `lx.send('inited')`。
+  /// 拿不到就退回歌曲自带的。
   Map<String, List<String>> _apiSources = const {};
 
   /// 正在解析直链的曲目 id。
@@ -148,7 +181,7 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
     await onlineDownloader.init();
     if (!mounted) return;
     setState(() {});
-    await _loadApiSources();
+    await _loadScriptSources();
   }
 
   @override
@@ -157,14 +190,14 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
     super.dispose();
   }
 
-  Future<void> _loadApiSources() async {
-    final bases = onlineSettings.orderedBases;
-    if (bases.isEmpty) return;
+  /// 跑一遍脚本（或复用已加载的），把脚本声明的音源与音质拿来过滤音质选择。
+  Future<void> _loadScriptSources() async {
+    if (!onlineSettings.hasScript) return;
     try {
-      final sources = await onlineApiClient.fetchSources(bases.first);
+      final sources = await onlineApiClient.fetchSources();
       if (mounted) setState(() => _apiSources = sources);
     } catch (e) {
-      logger.output('[online] init.conf 读取失败: $e');
+      logger.output('[online] 自定义源脚本加载失败: $e');
     }
   }
 
@@ -211,7 +244,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
           }
         } catch (e) {
           // 一个音源挂掉不该拖垮另一个，收集起来一起提示。
-          failures.add('${searcher.label}：${e is OnlineApiException ? e.message : e}');
+          failures.add(
+            '${searcher.label}：${e is OnlineApiException ? e.message : e}',
+          );
         }
       }),
     );
@@ -313,10 +348,14 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       // 始终以单首曲目覆盖播放队列：上一首/下一首由界面按当前活跃列表
       // 自行计算（见 [_playRelative]），而不是依赖全局 playQueue 的累积顺序。
       await audioHandler.setPlayQueue([metadata], 0);
+      // 播放条和详情页靠它拿封面 / 歌词，元数据里只存了歌名歌手。
+      onlineNowPlaying.value = track;
       logger.output('[online] play ${track.source} ${track.name} @$quality');
     } catch (e, stack) {
       logger.output('[online] play failed: $e\n$stack');
-      _showMessage('「${track.name}」播放失败：${e is OnlineApiException ? e.message : e}');
+      _showMessage(
+        '「${track.name}」播放失败：${e is OnlineApiException ? e.message : e}',
+      );
     } finally {
       if (mounted) setState(() => _resolvingId = null);
     }
@@ -358,6 +397,21 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
     _play(_activeTracks[target]);
   }
 
+  bool get _canPrevious => _currentResultIndex > 0;
+
+  bool get _canNext =>
+      _currentResultIndex >= 0 &&
+      _currentResultIndex < _activeTracks.length - 1;
+
+  /// 点播放条向上展开详情页。详情页里的上一首/下一首与播放条同一个口径。
+  void _openDetail() {
+    openOnlinePlayerDetail(
+      context,
+      onPrevious: _canPrevious ? () => _playRelative(-1) : null,
+      onNext: _canNext ? () => _playRelative(1) : null,
+    );
+  }
+
   static Duration _parseInterval(String interval) {
     final parts = interval.split(':');
     if (parts.length != 2) return Duration.zero;
@@ -371,11 +425,11 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF141826), OnlinePalette.bg],
+            colors: [OnlinePalette.surface, OnlinePalette.bg],
           ),
         ),
         child: SafeArea(
@@ -383,9 +437,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
             children: [
               _buildToolbar(),
               _buildSearchArea(),
-              const Divider(height: 1, color: OnlinePalette.surfaceAlt),
+              Divider(height: 1, color: OnlinePalette.surfaceAlt),
               Expanded(child: _buildResults()),
-              const Divider(height: 1, color: OnlinePalette.surfaceAlt),
+              Divider(height: 1, color: OnlinePalette.surfaceAlt),
               _buildPlayerBar(),
             ],
           ),
@@ -405,15 +459,15 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [OnlinePalette.primaryLight, OnlinePalette.primary],
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.graphic_eq_rounded,
               size: 20,
-              color: Colors.white,
+              color: OnlinePalette.onPrimary,
             ),
           ),
           const SizedBox(width: 12),
@@ -422,63 +476,21 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
           ),
           const SizedBox(width: 14),
-          Expanded(child: _buildBaseLabel()),
+          const Spacer(),
           const _DownloadIndicator(),
           IconButton(
-            tooltip: '接口设置',
+            tooltip: '音源设置',
             onPressed: _openSettings,
             icon: const Icon(Icons.tune_rounded),
           ),
           const SizedBox(width: 6),
-          FilledButton.icon(
+          IconButton(
+            tooltip: '返回本地音乐',
             onPressed: () => Navigator.of(context).pop(),
-            style: FilledButton.styleFrom(
-              backgroundColor: OnlinePalette.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.all(5),
-            ),
-            icon: const Icon(Icons.library_music_rounded, size: 16),
-            label: const Text('返回本地音乐'),
+            icon: const Icon(Icons.home_rounded),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildBaseLabel() {
-    return ValueListenableBuilder<List<String>>(
-      valueListenable: onlineSettings.bases,
-      builder: (context, bases, _) {
-        return ValueListenableBuilder<int>(
-          valueListenable: onlineSettings.selected,
-          builder: (context, selected, _) {
-            final base = bases.isEmpty
-                ? '未配置'
-                : bases[selected.clamp(0, bases.length - 1)];
-            return Tooltip(
-              message: base,
-              child: InkWell(
-                onTap: _openSettings,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  child: Text(
-                    base,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: OnlinePalette.textFaint,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
@@ -500,7 +512,7 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
               hintText: _searchType == OnlineSearchType.song
                   ? '搜索歌曲、歌手、专辑…'
                   : '搜索歌单、标签、主题…',
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.search_rounded,
                 color: OnlinePalette.textFaint,
               ),
@@ -548,7 +560,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                       const SizedBox(width: 12),
                       _SourceFilterChips(
                         value: _sourceFilter,
-                        onChanged: (value) => setState(() => _sourceFilter = value),
+                        onChanged: (value) =>
+                            setState(() => _sourceFilter = value),
                       ),
                     ],
                   ),
@@ -575,7 +588,7 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                   ),
                 ),
                 child: _searching
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
@@ -589,7 +602,10 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
           ),
           if (_message != null) ...[
             const SizedBox(height: 10),
-            _MessageBar(message: _message!, onDismiss: () => setState(() => _message = null)),
+            _MessageBar(
+              message: _message!,
+              onDismiss: () => setState(() => _message = null),
+            ),
           ],
         ],
       ),
@@ -606,8 +622,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 6, right: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 6, right: 8),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -637,9 +653,10 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                         label: item,
                         onTap: () {
                           _keywordController.text = item;
-                          _keywordController.selection = TextSelection.fromPosition(
-                            TextPosition(offset: item.length),
-                          );
+                          _keywordController.selection =
+                              TextSelection.fromPosition(
+                                TextPosition(offset: item.length),
+                              );
                           _search();
                         },
                         onDelete: () => onlineSearchHistory.remove(item),
@@ -653,7 +670,10 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.all(4),
                 constraints: const BoxConstraints(),
-                icon: const Icon(Icons.delete_sweep_outlined, color: OnlinePalette.textFaint),
+                icon: Icon(
+                  Icons.delete_sweep_outlined,
+                  color: OnlinePalette.textFaint,
+                ),
                 onPressed: () => onlineSearchHistory.clear(),
               ),
             ],
@@ -725,8 +745,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
         return _EmptyState(
           searching: _searching,
           isPlaylist: false,
-          hint: onlineSettings.bases.value.isEmpty
-              ? '接口未配置：搜索仍可使用，但播放需在「接口设置」中填写洛雪音乐接口地址'
+          hint: !onlineSettings.hasScript
+              ? '未导入自定义源：搜索仍可使用，但播放需在「音源设置」里导入洛雪音乐自定义源脚本（.js）'
               : null,
         );
       }
@@ -825,12 +845,18 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => Container(
                             color: OnlinePalette.surfaceAlt,
-                            child: const Icon(Icons.queue_music_rounded, color: OnlinePalette.textFaint),
+                            child: Icon(
+                              Icons.queue_music_rounded,
+                              color: OnlinePalette.textFaint,
+                            ),
                           ),
                         )
                       : Container(
                           color: OnlinePalette.surfaceAlt,
-                          child: const Icon(Icons.queue_music_rounded, color: OnlinePalette.textFaint),
+                          child: Icon(
+                            Icons.queue_music_rounded,
+                            color: OnlinePalette.textFaint,
+                          ),
                         ),
                 ),
               ),
@@ -843,7 +869,7 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                       playlist.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: OnlinePalette.text,
@@ -857,24 +883,35 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                             '创建者：${playlist.creator.isEmpty ? '未知' : playlist.creator}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: OnlinePalette.textDim),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: OnlinePalette.textDim,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Text(
                           playlist.songCountFormatted,
-                          style: const TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: OnlinePalette.textFaint,
+                          ),
                         ),
                         if (playlist.playCountFormatted.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Text(
                             playlist.playCountFormatted,
-                            style: const TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: OnlinePalette.textFaint,
+                            ),
                           ),
                         ],
                         const SizedBox(width: 10),
                         _Tag(
-                          text: onlineSearchers[playlist.source]?.label ?? playlist.source,
+                          text:
+                              onlineSearchers[playlist.source]?.label ??
+                              playlist.source,
                           color: OnlinePalette.primaryLight,
                         ),
                       ],
@@ -885,10 +922,10 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
             ],
           ),
         ),
-        const Divider(height: 1, color: OnlinePalette.surfaceAlt),
+        Divider(height: 1, color: OnlinePalette.surfaceAlt),
         Expanded(
           child: _loadingPlaylistTracks
-              ? const Center(
+              ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -901,45 +938,51 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                         ),
                       ),
                       SizedBox(height: 16),
-                      Text('正在加载歌单曲目…', style: TextStyle(color: OnlinePalette.textFaint)),
+                      Text(
+                        '正在加载歌单曲目…',
+                        style: TextStyle(color: OnlinePalette.textFaint),
+                      ),
                     ],
                   ),
                 )
               : _playlistTracks.isEmpty
-                  ? const Center(
-                      child: Text('歌单中没有曲目或加载失败', style: TextStyle(color: OnlinePalette.textFaint)),
-                    )
-                  : ListenableBuilder(
-                      listenable: currentSongNotifier,
-                      builder: (context, _) {
-                        final currentId = currentSongNotifier.value?.id;
-                        return GridView.builder(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isLandscape ? 20 : 0,
-                            vertical: 8,
-                          ),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: isLandscape ? 2 : 1,
-                            mainAxisExtent: 64,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 4,
-                          ),
-                          itemCount: _playlistTracks.length,
-                          itemBuilder: (context, index) {
-                            final track = _playlistTracks[index];
-                            return _TrackRow(
-                              index: index + 1,
-                              track: track,
-                              qualityLabel: onlineSettings.quality.value,
-                              isCurrent: track.id == currentId,
-                              isResolving: _resolvingId == track.id,
-                              onTap: () => _play(track),
-                              onDownload: () => _download(track),
-                            );
-                          },
+              ? Center(
+                  child: Text(
+                    '歌单中没有曲目或加载失败',
+                    style: TextStyle(color: OnlinePalette.textFaint),
+                  ),
+                )
+              : ListenableBuilder(
+                  listenable: currentSongNotifier,
+                  builder: (context, _) {
+                    final currentId = currentSongNotifier.value?.id;
+                    return GridView.builder(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isLandscape ? 20 : 0,
+                        vertical: 8,
+                      ),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: isLandscape ? 2 : 1,
+                        mainAxisExtent: 64,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 4,
+                      ),
+                      itemCount: _playlistTracks.length,
+                      itemBuilder: (context, index) {
+                        final track = _playlistTracks[index];
+                        return _TrackRow(
+                          index: index + 1,
+                          track: track,
+                          qualityLabel: onlineSettings.quality.value,
+                          isCurrent: track.id == currentId,
+                          isResolving: _resolvingId == track.id,
+                          onTap: () => _play(track),
+                          onDownload: () => _download(track),
                         );
                       },
-                    ),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -949,7 +992,11 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
 
   Widget _buildPlayerBar() {
     return ListenableBuilder(
-      listenable: Listenable.merge([currentSongNotifier, isPlayingNotifier]),
+      listenable: Listenable.merge([
+        currentSongNotifier,
+        isPlayingNotifier,
+        onlineNowPlaying,
+      ]),
       builder: (context, _) {
         final song = currentSongNotifier.value;
         // 音量调节仅在横屏下提供，竖屏状态下一律取消
@@ -960,60 +1007,81 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
           color: OnlinePalette.surface,
           child: Row(
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: song == null
-                        ? const [OnlinePalette.surfaceAlt, OnlinePalette.bg]
-                        : const [
-                            OnlinePalette.primaryLight,
-                            OnlinePalette.primary,
-                          ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  song == null ? Icons.music_note_rounded : Icons.graphic_eq,
-                  color: song == null ? OnlinePalette.textFaint : Colors.white,
-                ),
-              ),
-              const SizedBox(width: 14),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      song == null ? '还没有在播放' : getTitle(song),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                child: InkWell(
+                  onTap: song == null ? null : _openDetail,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Row(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: song == null
+                                ? [OnlinePalette.surfaceAlt, OnlinePalette.bg]
+                                : [
+                                    OnlinePalette.primaryLight,
+                                    OnlinePalette.primary,
+                                  ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          // 正在播的是本地曲目时不显示在线封面（列表里的那首不算数）。
+                          child: OnlineCover(
+                            track: onlineNowPlaying.value?.id == song?.id
+                                ? onlineNowPlaying.value
+                                : null,
+                            placeholder: Icon(
+                              song == null
+                                  ? Icons.music_note_rounded
+                                  : Icons.graphic_eq,
+                              color: song == null
+                                  ? OnlinePalette.textFaint
+                                  : OnlinePalette.onPrimary,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      song == null ? '点击搜索结果即可播放' : getArtist(song),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: OnlinePalette.textFaint,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              song == null ? '还没有在播放' : getTitle(song),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              song == null ? '点击搜索结果即可播放' : getArtist(song),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: OnlinePalette.textFaint,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
               IconButton(
                 tooltip: '上一首',
-                onPressed: song == null || _currentResultIndex <= 0
-                    ? null
-                    : () => _playRelative(-1),
+                onPressed: _canPrevious ? () => _playRelative(-1) : null,
                 icon: const Icon(Icons.skip_previous_rounded),
               ),
               ValueListenableBuilder<bool>(
@@ -1023,7 +1091,7 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                     tooltip: isPlaying ? '暂停' : '播放',
                     style: IconButton.styleFrom(
                       backgroundColor: OnlinePalette.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: OnlinePalette.onPrimary,
                     ),
                     onPressed: song == null
                         ? null
@@ -1040,16 +1108,12 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
               ),
               IconButton(
                 tooltip: '下一首',
-                onPressed: song == null ||
-                        _currentResultIndex < 0 ||
-                        _currentResultIndex >= _results.length - 1
-                    ? null
-                    : () => _playRelative(1),
+                onPressed: _canNext ? () => _playRelative(1) : null,
                 icon: const Icon(Icons.skip_next_rounded),
               ),
               const SizedBox(width: 12),
               if (isLandscape) ...[
-                const Expanded(child: _SeekBar()),
+                const Expanded(child: OnlineSeekBar()),
                 const SizedBox(width: 16),
                 Flexible(child: _VolumeControl()),
               ],
@@ -1100,7 +1164,7 @@ class _SourceFilterChips extends StatelessWidget {
             labelStyle: TextStyle(
               fontSize: 13,
               color: value == entry.key
-                  ? Colors.white
+                  ? OnlinePalette.onPrimary
                   : OnlinePalette.textDim,
             ),
           ),
@@ -1134,7 +1198,7 @@ class _QualityMenu extends StatelessWidget {
                     SizedBox(
                       width: 20,
                       child: item == quality
-                          ? const Icon(
+                          ? Icon(
                               Icons.check_rounded,
                               size: 16,
                               color: OnlinePalette.primaryLight,
@@ -1155,14 +1219,14 @@ class _QualityMenu extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.high_quality_rounded,
                   size: 16,
                   color: OnlinePalette.textDim,
                 ),
                 const SizedBox(width: 6),
                 Text(quality, style: const TextStyle(fontSize: 13)),
-                const Icon(
+                Icon(
                   Icons.expand_more_rounded,
                   size: 16,
                   color: OnlinePalette.textDim,
@@ -1203,10 +1267,7 @@ class _MessageBar extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                fontSize: 12,
-                color: OnlinePalette.warn,
-              ),
+              style: const TextStyle(fontSize: 12, color: OnlinePalette.warn),
             ),
           ),
           IconButton(
@@ -1238,7 +1299,7 @@ class _EmptyState extends StatelessWidget {
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 180),
         child: searching
-            ? const Column(
+            ? Column(
                 key: ValueKey('loading'),
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1271,7 +1332,7 @@ class _EmptyState extends StatelessWidget {
                   const SizedBox(height: 14),
                   Text(
                     isPlaylist ? '输入关键词搜索歌单' : '输入关键词开始搜索',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       color: OnlinePalette.textDim,
                     ),
@@ -1281,7 +1342,7 @@ class _EmptyState extends StatelessWidget {
                     isPlaylist
                         ? '搜索结果来自酷我 / 咪咕歌单，点击歌单可查看曲目并播放'
                         : '搜索结果来自酷我 / 咪咕，播放直链由聚合接口解析',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: OnlinePalette.textFaint,
                     ),
@@ -1333,18 +1394,15 @@ class _HistoryChip extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: OnlinePalette.textDim,
-              ),
+              style: TextStyle(fontSize: 12, color: OnlinePalette.textDim),
             ),
             const SizedBox(width: 4),
             InkWell(
               onTap: onDelete,
               borderRadius: BorderRadius.circular(10),
-              hoverColor: Colors.white12,
-              child: const Padding(
-                padding: EdgeInsets.all(2),
+              hoverColor: OnlinePalette.text.withAlpha(20),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
                 child: Icon(
                   Icons.close_rounded,
                   size: 13,
@@ -1390,7 +1448,9 @@ class _TypeOption extends StatelessWidget {
             Icon(
               icon,
               size: 15,
-              color: selected ? Colors.white : OnlinePalette.textFaint,
+              color: selected
+                  ? OnlinePalette.onPrimary
+                  : OnlinePalette.textFaint,
             ),
             const SizedBox(width: 5),
             Text(
@@ -1398,7 +1458,9 @@ class _TypeOption extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                color: selected ? Colors.white : OnlinePalette.textDim,
+                color: selected
+                    ? OnlinePalette.onPrimary
+                    : OnlinePalette.textDim,
               ),
             ),
           ],
@@ -1433,9 +1495,7 @@ class _PlaylistRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: OnlinePalette.surface.withAlpha(80),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: OnlinePalette.surfaceAlt.withAlpha(80),
-              ),
+              border: Border.all(color: OnlinePalette.surfaceAlt.withAlpha(80)),
             ),
             child: Row(
               children: [
@@ -1443,7 +1503,10 @@ class _PlaylistRow extends StatelessWidget {
                   width: 28,
                   child: Text(
                     '$index',
-                    style: const TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: OnlinePalette.textFaint,
+                    ),
                   ),
                 ),
                 ClipRRect(
@@ -1457,12 +1520,18 @@ class _PlaylistRow extends StatelessWidget {
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => Container(
                               color: OnlinePalette.surfaceAlt,
-                              child: const Icon(Icons.queue_music_rounded, color: OnlinePalette.textFaint),
+                              child: Icon(
+                                Icons.queue_music_rounded,
+                                color: OnlinePalette.textFaint,
+                              ),
                             ),
                           )
                         : Container(
                             color: OnlinePalette.surfaceAlt,
-                            child: const Icon(Icons.queue_music_rounded, color: OnlinePalette.textFaint),
+                            child: Icon(
+                              Icons.queue_music_rounded,
+                              color: OnlinePalette.textFaint,
+                            ),
                           ),
                   ),
                 ),
@@ -1476,7 +1545,7 @@ class _PlaylistRow extends StatelessWidget {
                         playlist.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: OnlinePalette.text,
@@ -1487,22 +1556,34 @@ class _PlaylistRow extends StatelessWidget {
                         children: [
                           Flexible(
                             child: Text(
-                              playlist.creator.isEmpty ? '未知作者' : playlist.creator,
+                              playlist.creator.isEmpty
+                                  ? '未知作者'
+                                  : playlist.creator,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: OnlinePalette.textFaint,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Text(
                             playlist.songCountFormatted,
-                            style: const TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: OnlinePalette.textFaint,
+                            ),
                           ),
-                          if (!compact && playlist.playCountFormatted.isNotEmpty) ...[
+                          if (!compact &&
+                              playlist.playCountFormatted.isNotEmpty) ...[
                             const SizedBox(width: 8),
                             Text(
                               playlist.playCountFormatted,
-                              style: const TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: OnlinePalette.textFaint,
+                              ),
                             ),
                           ],
                         ],
@@ -1512,11 +1593,13 @@ class _PlaylistRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 _Tag(
-                  text: onlineSearchers[playlist.source]?.label ?? playlist.source,
+                  text:
+                      onlineSearchers[playlist.source]?.label ??
+                      playlist.source,
                   color: OnlinePalette.primaryLight,
                 ),
                 const SizedBox(width: 6),
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
                   color: OnlinePalette.textFaint,
                   size: 18,
@@ -1526,6 +1609,67 @@ class _PlaylistRow extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// 在线曲目封面。搜索结果里酷我不带封面、咪咕也可能缺，所以这里按 lx-music
+/// 的 getPic 口径现取一次（脚本 `pic` action -> 音源接口）。结果由
+/// [onlineApiClient] 缓存并去重，同一首歌在多处显示只会请求一次。
+class OnlineCover extends StatefulWidget {
+  const OnlineCover({
+    required this.track,
+    this.placeholder,
+    this.fit = BoxFit.cover,
+    super.key,
+  });
+
+  /// 要显示封面的曲目；null 表示当前没有在线曲目，直接显示占位图。
+  final OnlineTrack? track;
+
+  /// 没有封面或加载失败时显示什么，不给就什么都不显示。
+  final Widget? placeholder;
+
+  final BoxFit fit;
+
+  @override
+  State<OnlineCover> createState() => _OnlineCoverState();
+}
+
+class _OnlineCoverState extends State<OnlineCover> {
+  String _url = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(covariant OnlineCover oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.track?.id != widget.track?.id) {
+      _url = '';
+      _resolve();
+    }
+  }
+
+  Future<void> _resolve() async {
+    final track = widget.track;
+    if (track == null) return;
+    final url = await onlineApiClient.fetchPicUrl(track);
+    if (!mounted || url.isEmpty || track.id != widget.track?.id) return;
+    setState(() => _url = url);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = _url.isNotEmpty ? _url : widget.track?.img ?? '';
+    if (url.isEmpty) return widget.placeholder ?? const SizedBox.shrink();
+    return Image.network(
+      url,
+      fit: widget.fit,
+      errorBuilder: (_, _, _) => widget.placeholder ?? const SizedBox.shrink(),
     );
   }
 }
@@ -1579,7 +1723,7 @@ class _TrackRow extends StatelessWidget {
                   child: isResolving
                       // Center 给宽松约束：否则外层 SizedBox(32) 的紧宽度会把
                       // 转圈压成 32x16 的扁圆。
-                      ? const Center(
+                      ? Center(
                           child: SizedBox(
                             width: 16,
                             height: 16,
@@ -1590,19 +1734,39 @@ class _TrackRow extends StatelessWidget {
                           ),
                         )
                       : isCurrent
-                      ? const Icon(
+                      ? Icon(
                           Icons.equalizer_rounded,
                           size: 18,
                           color: OnlinePalette.primaryLight,
                         )
                       : Text(
                           '$index',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             color: OnlinePalette.textFaint,
                           ),
                         ),
                 ),
+                const SizedBox(width: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: OnlineCover(
+                      track: track,
+                      placeholder: Container(
+                        color: OnlinePalette.surfaceAlt,
+                        child: Icon(
+                          Icons.music_note_rounded,
+                          size: 18,
+                          color: OnlinePalette.textFaint,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1629,7 +1793,7 @@ class _TrackRow extends StatelessWidget {
                             : '${track.singer} · ${track.albumName}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: OnlinePalette.textFaint,
                         ),
@@ -1649,7 +1813,7 @@ class _TrackRow extends StatelessWidget {
                 const SizedBox(width: 10),
                 Text(
                   track.interval,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: OnlinePalette.textFaint,
                   ),
@@ -1703,10 +1867,7 @@ class _DownloadButton extends StatelessWidget {
                     color: OnlinePalette.primaryLight,
                   ),
                 )
-              : const Icon(
-                  Icons.download_rounded,
-                  color: OnlinePalette.textFaint,
-                ),
+              : Icon(Icons.download_rounded, color: OnlinePalette.textFaint),
         );
       },
     );
@@ -1727,7 +1888,7 @@ class _DownloadIndicator extends StatelessWidget {
           label: Text('$count'),
           isLabelVisible: count > 0,
           backgroundColor: OnlinePalette.primary,
-          textColor: Colors.white,
+          textColor: OnlinePalette.onPrimary,
           child: IconButton(
             tooltip: '下载管理',
             onPressed: () => openDownloadPanel(context),
@@ -1755,80 +1916,6 @@ class _Tag extends StatelessWidget {
       ),
       child: Text(text, style: TextStyle(fontSize: 11, color: color)),
     );
-  }
-}
-
-class _SeekBar extends StatefulWidget {
-  const _SeekBar();
-
-  @override
-  State<_SeekBar> createState() => _SeekBarState();
-}
-
-class _SeekBarState extends State<_SeekBar> {
-  double? _dragValue;
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<Duration>(
-      stream: audioHandler.getPositionStream(),
-      builder: (context, positionSnapshot) {
-        return StreamBuilder<Duration>(
-          stream: audioHandler.getDurationStream(),
-          initialData: audioHandler.getCurrentDuration(),
-          builder: (context, durationSnapshot) {
-            var duration = durationSnapshot.data ?? Duration.zero;
-            if (duration <= Duration.zero) {
-              duration = getDuration(currentSongNotifier.value);
-            }
-            final max = duration.inMilliseconds.toDouble();
-            final position = audioHandler.getPosition();
-            final value = (_dragValue ?? position.inMilliseconds.toDouble())
-                .clamp(0.0, max <= 0 ? 1.0 : max);
-
-            return Row(
-              children: [
-                Text(
-                  _formatDuration(Duration(milliseconds: value.round())),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: OnlinePalette.textFaint,
-                  ),
-                ),
-                Expanded(
-                  child: Slider(
-                    value: value,
-                    max: max <= 0 ? 1 : max,
-                    onChanged: max <= 0
-                        ? null
-                        : (v) => setState(() => _dragValue = v),
-                    onChangeEnd: max <= 0
-                        ? null
-                        : (v) {
-                            setState(() => _dragValue = null);
-                            audioHandler.seek(Duration(milliseconds: v.round()));
-                          },
-                  ),
-                ),
-                Text(
-                  _formatDuration(duration),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: OnlinePalette.textFaint,
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  static String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes;
-    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
   }
 }
 
@@ -1876,34 +1963,67 @@ class _SettingsDialog extends StatefulWidget {
 }
 
 class _SettingsDialogState extends State<_SettingsDialog> {
-  final TextEditingController _newBase = TextEditingController();
+  bool _importing = false;
+
+  /// 已导入脚本声明了哪些音源，导入/移除后重建。
+  late Future<Map<String, List<String>>> _sourcesFuture;
 
   @override
-  void dispose() {
-    _newBase.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _sourcesFuture = _refreshSources();
   }
 
-  void _addBase(String value) {
-    final base = value.trim().replaceAll(RegExp(r'/+$'), '');
-    if (base.isEmpty) return;
-    final list = List<String>.from(onlineSettings.bases.value);
-    if (list.contains(base)) return;
-    list.add(base);
-    onlineSettings.bases.value = list;
-    onlineSettings.save();
-    setState(() {});
-  }
+  /// 一个脚本都没有就别去跑引擎了，否则这个 future 的异常没人接。
+  Future<Map<String, List<String>>> _refreshSources() =>
+      onlineSettings.hasScript
+      ? onlineApiClient.fetchSources()
+      : Future.value(const <String, List<String>>{});
 
-  void _removeBase(int index) {
-    final list = List<String>.from(onlineSettings.bases.value);
-    if (index < 0 || index >= list.length) return;
-    list.removeAt(index);
-    onlineSettings.bases.value = list;
-    if (onlineSettings.selected.value >= list.length) {
-      onlineSettings.selected.value = list.isEmpty ? 0 : list.length - 1;
+  /// 填入脚本链接，下载正文后追加进列表并重新加载。同链接会替换原条目。
+  Future<void> _importScript() async {
+    if (_importing) return;
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => const _ScriptUrlDialog(),
+    );
+    if (url == null || !mounted) return;
+    setState(() => _importing = true);
+    try {
+      final script = await onlineApiClient.fetchScript(url);
+      await onlineSettings.addScript(
+        LxScriptEntry(name: _scriptNameFromUrl(url), url: url, script: script),
+      );
+      await onlineApiClient.reload();
+      if (!mounted) return;
+      // 箭头函数会把赋值结果（Future）当返回值，setState 会直接报错。
+      setState(() {
+        _sourcesFuture = _refreshSources();
+      });
+    } catch (e) {
+      logger.output('[online] 导入脚本失败: $e');
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text('导入失败：$e')));
+    } finally {
+      if (mounted) setState(() => _importing = false);
     }
-    onlineSettings.save();
+  }
+
+  /// 链接末段当脚本名（`xxx/lx-source.js` -> `lx-source.js`），没有就退回域名。
+  String _scriptNameFromUrl(String url) {
+    final uri = Uri.parse(url);
+    return uri.pathSegments.isEmpty ? uri.host : uri.pathSegments.last;
+  }
+
+  /// 按列表位置移除；列表顺序就是取链优先级。
+  Future<void> _removeScript(int index) async {
+    await onlineSettings.removeScript(index);
+    await onlineApiClient.reload();
+    if (!mounted) return;
+    setState(() {
+      _sourcesFuture = _refreshSources();
+    });
   }
 
   @override
@@ -1922,7 +2042,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               Row(
                 children: [
                   const Text(
-                    '接口设置',
+                    '音源设置',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const Spacer(),
@@ -1933,50 +2053,34 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 ],
               ),
               const SizedBox(height: 4),
-              const Text(
-                '播放时会按顺序尝试这些地址，一个失败自动切下一个。',
+              Text(
+                '播放直链由洛雪音乐的「自定义源」脚本解析，可导入多个 .js 脚本链接；'
+                '按顺序依次取链，一个失败自动用下一个。',
                 style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
               ),
               const SizedBox(height: 14),
-              Flexible(child: _buildBaseList()),
+              Flexible(child: _buildScriptArea()),
               const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _newBase,
-                      decoration: const InputDecoration(
-                        hintText: 'https://api.example.com',
-                        isDense: true,
-                      ),
-                      onSubmitted: (value) {
-                        _addBase(value);
-                        _newBase.clear();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: OnlinePalette.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () {
-                      _addBase(_newBase.text);
-                      _newBase.clear();
-                    },
-                    child: const Text('添加'),
-                  ),
-                ],
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: OnlinePalette.primary,
+                  foregroundColor: OnlinePalette.onPrimary,
+                ),
+                onPressed: _importing ? null : _importScript,
+                icon: const Icon(Icons.link_rounded, size: 18),
+                label: const Text('导入脚本'),
               ),
               const SizedBox(height: 16),
-              const Divider(height: 1, color: OnlinePalette.surfaceAlt),
+              Divider(height: 1, color: OnlinePalette.surfaceAlt),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Text(
+                  Text(
                     '下载目录',
-                    style: TextStyle(fontSize: 13, color: OnlinePalette.textDim),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: OnlinePalette.textDim,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -1986,7 +2090,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                         onlineDownloader.directoryDisplay,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: OnlinePalette.textFaint,
                         ),
@@ -2002,9 +2106,12 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Text(
+                  Text(
                     '默认音质',
-                    style: TextStyle(fontSize: 13, color: OnlinePalette.textDim),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: OnlinePalette.textDim,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   _QualityMenu(
@@ -2024,85 +2131,138 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     );
   }
 
-  Widget _buildBaseList() {
-    return ValueListenableBuilder<List<String>>(
-      valueListenable: onlineSettings.bases,
-      builder: (context, bases, _) {
-        if (bases.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
+  /// 列出已导入的脚本与它们声明的音源。脚本声明在加载后才拿得到，
+  /// 所以顺手触发一次加载。
+  Widget _buildScriptArea() {
+    return ValueListenableBuilder<List<LxScriptEntry>>(
+      valueListenable: onlineSettings.scripts,
+      builder: (context, scripts, _) {
+        if (scripts.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
               child: Text(
-                '还没有接口地址，请添加适配洛雪音乐的api地址',
+                '还没有自定义源脚本，请填入脚本链接导入',
                 style: TextStyle(color: OnlinePalette.textFaint),
               ),
             ),
           );
         }
-        return ValueListenableBuilder<int>(
-          valueListenable: onlineSettings.selected,
-          builder: (context, selected, _) {
-            return ListView.builder(
-              shrinkWrap: true,
-              itemCount: bases.length,
-              itemBuilder: (context, index) {
-                final isSelected = index == selected;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? OnlinePalette.primary.withAlpha(26)
-                          : OnlinePalette.surfaceAlt,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          tooltip: '使用此地址',
-                          onPressed: () {
-                            onlineSettings.selected.value = index;
-                            onlineSettings.save();
-                          },
-                          icon: Icon(
-                            isSelected
-                                ? Icons.radio_button_checked_rounded
-                                : Icons.radio_button_unchecked_rounded,
-                            color: isSelected
-                                ? OnlinePalette.primaryLight
-                                : OnlinePalette.textFaint,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            bases[index],
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isSelected
-                                  ? OnlinePalette.text
-                                  : OnlinePalette.textDim,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: '删除',
-                          onPressed: () => _removeBase(index),
-                          icon: const Icon(
-                            Icons.delete_outline_rounded,
-                            size: 18,
-                            color: OnlinePalette.danger,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: scripts.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 6),
+                itemBuilder: (context, index) =>
+                    _buildScriptTile(scripts[index], index),
+              ),
+            ),
+            const SizedBox(height: 8),
+            FutureBuilder<Map<String, List<String>>>(
+              future: _sourcesFuture,
+              builder: (context, snapshot) => Text(
+                _sourcesText(snapshot),
+                style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+              ),
+            ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildScriptTile(LxScriptEntry entry, int index) {
+    return Container(
+      decoration: BoxDecoration(
+        color: OnlinePalette.surfaceAlt,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ListTile(
+        dense: true,
+        leading: const Icon(Icons.javascript_rounded, size: 18),
+        title: Text(
+          '${index + 1}. ${entry.name}',
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13),
+        ),
+        subtitle: entry.url.isEmpty
+            ? null
+            : Text(
+                entry.url,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: OnlinePalette.textFaint),
+              ),
+        trailing: IconButton(
+          tooltip: '移除',
+          icon: const Icon(Icons.close_rounded, size: 18),
+          onPressed: () => _removeScript(index),
+        ),
+      ),
+    );
+  }
+
+  /// 「已声明音源 / 哪个脚本挂了」那一行。
+  String _sourcesText(AsyncSnapshot<Map<String, List<String>>> snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) return '正在加载脚本…';
+    if (snapshot.hasError) return '脚本加载失败：${snapshot.error}';
+    final sources = snapshot.data ?? const {};
+    final failures = lxJsSources.failures;
+    if (sources.isEmpty && failures.isEmpty) return '脚本没有声明可用的音源';
+    return [
+      if (sources.isNotEmpty) '已声明音源：${sources.keys.join('、')}（按顺序依次取链）',
+      ...failures,
+    ].join('\n');
+  }
+}
+
+/// 输入自定义源脚本的下载链接。
+class _ScriptUrlDialog extends StatefulWidget {
+  const _ScriptUrlDialog();
+
+  @override
+  State<_ScriptUrlDialog> createState() => _ScriptUrlDialogState();
+}
+
+class _ScriptUrlDialogState extends State<_ScriptUrlDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final url = _controller.text.trim();
+    if (url.isEmpty) return;
+    Navigator.of(context).pop(url);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: OnlinePalette.surface,
+      title: const Text('导入自定义源脚本'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        onSubmitted: (_) => _submit(),
+        decoration: const InputDecoration(
+          hintText: 'https://example.com/lx-source.js',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('导入')),
+      ],
     );
   }
 }

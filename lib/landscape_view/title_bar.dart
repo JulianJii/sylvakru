@@ -12,6 +12,7 @@ import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/layer/layers_manager.dart';
 import 'package:sylvakru/layer/lyrics_page_layer.dart';
 import 'package:sylvakru/mini_view/mini_view.dart';
+import 'package:sylvakru/online_music/online_music_page.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -217,13 +218,20 @@ class _TitleBarState extends State<TitleBar> {
 
         if (widget.isMainPage)
           IconButton(
+            tooltip: "网络音乐",
+            onPressed: () => openOnlineMusicPage(context),
+            icon: Icon(Icons.cloud_outlined),
+          ),
+
+        if (!isMobile) windowControls(),
+
+        if (widget.isMainPage)
+          IconButton(
             onPressed: () {
               layersManager.switchRootLayer('settings');
             },
             icon: ImageIcon(settingImage),
           ),
-
-        if (!isMobile) windowControls(),
 
         SizedBox(width: isMobile ? 10 : 30),
       ],

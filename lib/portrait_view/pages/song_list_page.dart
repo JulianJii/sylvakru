@@ -6,8 +6,8 @@ extension _SongListPage on _SongListState {
 
     // a root tab (songs / ranking / recently) is rendered into the portrait
     // home, which owns the one top bar and the tab bar - this page only says
-    // what goes in the top bar. A page stacked on top of a root layer keeps its
-    // own top bar with the back arrow.
+    // what goes in the top bar, the home adds the settings button itself. A page
+    // stacked on top of a root layer keeps its own top bar with the back arrow.
     if (widget.isRoot && playlist == null) {
       return rootTabContent(context, actions, contentWithStack());
     }
@@ -18,7 +18,7 @@ extension _SongListPage on _SongListState {
       resizeToAvoidBottomInset: false,
       body: Column(
         children: [
-          topBar(context, actions),
+          topBar(context, [...actions, moreButton(context)]),
           Expanded(child: contentWithStack()),
         ],
       ),
@@ -47,7 +47,6 @@ extension _SongListPage on _SongListState {
       selectButton(context),
       if (!isRanking && !isRecently) sortButton(context),
       if (playlist != null && playlist!.isNotFavorite) deleteButton(context),
-      moreButton(context),
     ];
 
     return actions;

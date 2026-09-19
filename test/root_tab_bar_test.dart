@@ -42,7 +42,8 @@ void main() {
     await tester.pump();
 
     expect(slot.actions, isNotNull);
-    expect(slot.actions!.length, 1);
+    // the actions of the page plus the online music and settings buttons
+    expect(slot.actions!.length, 3);
     expect(filled, 1, reason: 'the shell gets one frame to pick them up');
     expect(
       tester.getTopLeft(find.text('page-test')).dy,

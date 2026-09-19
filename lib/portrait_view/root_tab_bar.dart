@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
+import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
+import 'package:sylvakru/layer/layers_manager.dart';
+import 'package:sylvakru/online_music/online_music_page.dart';
 
 // the root tabs, in the order the app shows them
 const List<String> rootLayerLabels = <String>[
@@ -90,19 +93,70 @@ class RootTabScope extends InheritedWidget {
 }
 
 /// What a root tab page puts on screen: the home already draws the one top bar
-/// and the tab bar above it, so the page only publishes the actions they should
-/// show and leaves [RootTabScope.topInset] free for them.
+/// and the tab bar above it, so the page only publishes the actions that go
+/// before the settings button [rootTabMoreButton] every tab ends its row with,
+/// and leaves [RootTabScope.topInset] free for them.
 Widget rootTabContent(
   BuildContext context,
   List<Widget> actions,
   Widget content,
 ) {
   final scope = RootTabScope.maybeOf(context);
-  scope?.slot.set(actions);
+  scope?.slot.set([
+    ...actions,
+    rootTabOnlineMusicButton(context),
+    rootTabMoreButton(context),
+  ]);
 
   return Padding(
     padding: EdgeInsets.only(top: scope?.topInset ?? rootTabBarInset),
     child: content,
+  );
+}
+
+/// The online music entry, right before the settings button every root tab
+/// ends its row with.
+Widget rootTabOnlineMusicButton(BuildContext context) {
+  final l10n = AppLocalizations.of(context);
+
+  return IconButton(
+    tooltip: "网络音乐",
+    padding: EdgeInsets.zero,
+    visualDensity: VisualDensity.compact,
+    icon: Icon(Icons.cloud_outlined),
+    onPressed: () {
+      tryVibrate();
+      openOnlineMusicPage(context);
+    },
+  );
+}
+
+/// The settings entry every root tab ends its action row with. It is the same
+/// button on all of them, so the home draws it itself instead of every page
+/// passing one in.
+Widget rootTabMoreButton(BuildContext context) {
+  final l10n = AppLocalizations.of(context);
+
+  return Builder(
+    builder: (buttonContext) {
+      return IconButton(
+        tooltip: l10n.more,
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        icon: Icon(Icons.more_vert),
+        onPressed: () {
+          tryVibrate();
+
+          showContextMenu(context, [
+            MenuItem(
+              iconData: Icons.settings_outlined,
+              text: l10n.settings,
+              callback: () => layersManager.openSettings(),
+            ),
+          ], menuAnchor(buttonContext));
+        },
+      );
+    },
   );
 }
 
