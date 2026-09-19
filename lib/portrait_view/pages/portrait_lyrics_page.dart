@@ -486,6 +486,7 @@ class _PortraitLyricsPageState extends State<PortraitLyricsPage> {
           picture: currentSong?.picture,
           elevation: 15,
           color: colorManager.getSpecificLyricsPageCoverArtBaseColor(),
+          useResize: false,
         ),
       ),
     );

@@ -261,6 +261,7 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
                             elevation: 15,
                             color: colorManager
                                 .getSpecificLyricsPageCoverArtBaseColor(),
+                            useResize: false,
                           ),
                         ),
                         if (pageHight >= 600) ...[
