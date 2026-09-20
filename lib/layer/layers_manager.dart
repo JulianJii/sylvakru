@@ -492,6 +492,7 @@ class LayersManager {
     popDetail('albums', executePop: false);
     popDetail('folders', executePop: false);
     popDetail('playlists', executePop: false);
+    popDetail('home', executePop: false);
     while (await layersManager.popDetail('settings')) {}
 
     layerInfoMap.clear();
@@ -509,6 +510,7 @@ class LayersManager {
     popDetail('albums', executePop: false);
     popDetail('folders', executePop: false);
     popDetail('playlists', executePop: false);
+    popDetail('home', executePop: false);
 
     layerInfoMap.removeWhere((k, v) => k != topRootLayer);
     rootLayerMap.removeWhere((k, v) => v != topRootLayer);
