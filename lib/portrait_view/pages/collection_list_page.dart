@@ -161,8 +161,11 @@ extension _CollectionListPage on CollectionListState {
   Widget listView() {
     return ListView.builder(
       itemExtent: 64,
-      itemCount: currentPictureList.length,
+      itemCount: currentPictureList.length + 1,
       itemBuilder: (context, index) {
+        if (index >= currentPictureList.length) {
+          return SizedBox();
+        }
         final picture = currentPictureList[index];
         final text = currentTextList[index];
         return Center(
@@ -207,8 +210,11 @@ extension _CollectionListPage on CollectionListState {
             mainAxisSpacing: 5,
             textExtent: 25,
           ),
-          itemCount: currentPictureList.length,
+          itemCount: currentPictureList.length + (useLargePicture ? 2 : 3),
           itemBuilder: (context, index) {
+            if (index >= currentPictureList.length) {
+              return SizedBox();
+            }
             final picture = currentPictureList[index];
             final text = currentTextList[index];
 

@@ -21,7 +21,7 @@ extension FoldersPage on FoldersLayer {
                   listenable: Listenable.merge([coverSong?.updateNotifier]),
                   builder: (_, _) {
                     return Hero(
-                      tag: (coverSong?.picture.id ?? '') + folder.id,
+                      tag: '${coverSong?.picture.id ?? ''}folders${folder.id}',
                       transitionOnUserGestures: true,
                       child: CoverArtWidget(
                         size: 50,
