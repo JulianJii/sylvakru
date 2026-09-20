@@ -10,6 +10,7 @@ import 'package:sylvakru/base/data/history.dart';
 import 'package:sylvakru/base/data/playlist.dart';
 import 'package:sylvakru/base/my_audio_metadata.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
+import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/base/utils/media_query.dart';
 import 'package:sylvakru/base/utils/metadata_utils.dart';
 import 'package:sylvakru/base/widgets/cover_art_widget.dart';
@@ -415,13 +416,18 @@ class HomeLayerState extends State<HomeLayer> {
                               ],
                             ),
                           ),
-                          if (isMobile)
-                            IconButton(
-                              onPressed: () {},
-                              icon: Icon(Icons.more_vert_rounded),
-                            )
-                          else
-                            SizedBox(width: 10),
+                          IconButton(
+                            onPressed: () {
+                              showSongOptions(
+                                context: context,
+                                song: song,
+                                includeGoToArtist: true,
+                                includeGoToAlbum: true,
+                                useDialog: !isTooNarrow(context),
+                              );
+                            },
+                            icon: Icon(Icons.more_vert_rounded, size: 20),
+                          ),
                         ],
                       ),
                     ),
