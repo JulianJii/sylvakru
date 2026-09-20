@@ -7,7 +7,7 @@ import 'package:sylvakru/online_music/online_music_page.dart';
 
 // the root tabs, in the order the app shows them
 const List<String> rootLayerLabels = <String>[
-  'ranking',
+  'frequently',
   'recently',
   'songs',
   'playlists',
@@ -26,8 +26,8 @@ String rootTabText(AppLocalizations l10n, String label) {
       return l10n.folders;
     case 'songs':
       return l10n.songs;
-    case 'ranking':
-      return l10n.ranking;
+    case 'frequently':
+      return l10n.frequently;
     case 'recently':
       return l10n.recently;
     case 'playlists':

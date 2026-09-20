@@ -560,6 +560,15 @@ class Library {
 
         await _enqueueWrite(_persistAll);
       default:
+        Map<String, MyAudioMetadata> id2SongTmp = {};
+
+        // feiniu does not contain playcount field, we keep it.
+        if (sourceType == .feiniu) {
+          id2SongTmp = Map.fromEntries(
+            id2Song.entries.where((entry) => entry.value.playCount > 0),
+          );
+        }
+
         id2Song.clear();
         songList.clear();
 
@@ -585,6 +594,14 @@ class Library {
                 final songs = results.remove(nextIndex)!;
 
                 final start = songList.length;
+
+                // feiniu does not contain playcount field, we keep it.
+                if (sourceType == .feiniu) {
+                  for (final song in songs) {
+                    song.playCount = id2SongTmp[song.id]?.playCount ?? 0;
+                    song.lastPlayed = id2SongTmp[song.id]?.lastPlayed;
+                  }
+                }
                 songList.addAll(songs);
 
                 await _saveBatchMetadata(songs, start);

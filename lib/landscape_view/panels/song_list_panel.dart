@@ -263,7 +263,7 @@ extension _SongListPanel on _SongListState {
                                                 songList: currentSongList,
                                                 playlist: playlist,
                                                 folder: folder,
-                                                isRanking: isRanking,
+                                                isFrequently: isFrequently,
                                                 isRecently: isRecently,
                                                 isLibrary: isLibrary,
                                                 reorderable: reorderable,
@@ -281,7 +281,7 @@ extension _SongListPanel on _SongListState {
                             ],
 
                             // 表头去掉后，横屏排序统一复用竖屏顶栏那份完整菜单
-                            if (!isRanking && !isRecently) ...[
+                            if (!isFrequently && !isRecently) ...[
                               SizedBox(width: 15),
                               sortButton(context),
                             ],
@@ -396,7 +396,7 @@ extension _SongListPanel on _SongListState {
                           ),
                         ),
 
-                        if (widget.isRanking)
+                        if (widget.isFrequently && sourceType != .emby)
                           SizedBox(
                             width: 50,
                             child: Text(

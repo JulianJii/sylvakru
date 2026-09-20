@@ -23,6 +23,7 @@ const AssetImage feiniuImage = AssetImage('assets/images/feiniu.png');
 const AssetImage folderImage = AssetImage('assets/images/folder.png');
 const AssetImage fontImage = AssetImage('assets/images/font.png');
 const AssetImage forwardImage = AssetImage('assets/images/forward.png');
+const AssetImage frequentlyImage = AssetImage('assets/images/frequently.png');
 const AssetImage fullscreenExitImage = AssetImage(
   'assets/images/fullscreen_exit.png',
 );
@@ -66,7 +67,6 @@ const AssetImage powerOffImage = AssetImage('assets/images/power_off.png');
 const AssetImage previousButtonImage = AssetImage(
   'assets/images/previous_button.png',
 );
-const AssetImage rankingImage = AssetImage('assets/images/ranking.png');
 const AssetImage recentlyImage = AssetImage('assets/images/recently.png');
 const AssetImage reloadImage = AssetImage('assets/images/reload.png');
 const AssetImage reorderImage = AssetImage('assets/images/reorder.png');

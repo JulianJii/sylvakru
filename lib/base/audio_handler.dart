@@ -144,7 +144,6 @@ class MyAudioHandler extends BaseAudioHandler {
   Timer? _positionTimer;
 
   bool isLoading = false;
-  int _loadGeneration = 0;
 
   MyAudioHandler() {
     // avoid reading .lrc files
@@ -551,7 +550,6 @@ class MyAudioHandler extends BaseAudioHandler {
   }
 
   void justClear() {
-    ++_loadGeneration;
     isLoading = false;
     _player.stop();
     updateIsPlaying(false);
@@ -579,45 +577,27 @@ class MyAudioHandler extends BaseAudioHandler {
   }
 
   Future<void> sync() async {
-    if (isNotStreamSource) {
-      playQueue = getNewQueue(playQueue);
-      _playQueueTmp = getNewQueue(_playQueueTmp);
-      final currentSong = currentSongNotifier.value;
-      if (currentSong != null) {
-        final tmpCurrentSong = library.id2Song[currentSong.id];
-        if (tmpCurrentSong != null) {
-          await _setLyricsAndUpdateColors(tmpCurrentSong);
-          currentSongNotifier.value = tmpCurrentSong;
-          currentIndex = playQueue.indexOf(tmpCurrentSong);
-          updateServiceMediaItem(tmpCurrentSong);
-        } else {
-          currentSongNotifier.value = null;
-          currentIndex = -1;
-          if (playQueue.isNotEmpty) {
-            await skipToNext();
-          } else {
-            await stop();
-          }
-        }
-      }
-      saveAllStates();
-    } else {
-      await _loadPlayQueueState();
-      currentIndex = playQueue.indexWhere(
-        (e) => e.id == currentSongNotifier.value?.id,
-      );
-      if (currentIndex != -1) {
-        final tmpCurrentSong = playQueue[currentIndex];
+    playQueue = getNewQueue(playQueue);
+    _playQueueTmp = getNewQueue(_playQueueTmp);
+    final currentSong = currentSongNotifier.value;
+    if (currentSong != null) {
+      final tmpCurrentSong = library.id2Song[currentSong.id];
+      if (tmpCurrentSong != null) {
         await _setLyricsAndUpdateColors(tmpCurrentSong);
         currentSongNotifier.value = tmpCurrentSong;
+        currentIndex = playQueue.indexOf(tmpCurrentSong);
         updateServiceMediaItem(tmpCurrentSong);
-      } else if (playQueue.isNotEmpty) {
-        await skipToNext();
       } else {
         currentSongNotifier.value = null;
-        await stop();
+        currentIndex = -1;
+        if (playQueue.isNotEmpty) {
+          await skipToNext();
+        } else {
+          await stop();
+        }
       }
     }
+    saveAllStates();
   }
 
   Future<void> _setLyricsAndUpdateColors(MyAudioMetadata song) async {
@@ -635,7 +615,6 @@ class MyAudioHandler extends BaseAudioHandler {
   }
 
   Future<void> load({Duration? start}) async {
-    final generation = ++_loadGeneration;
     if (currentSongNotifier.value != null) {
       if (_playLastSyncTime != null) {
         _playedDuration += DateTime.now().difference(_playLastSyncTime!);
@@ -650,7 +629,6 @@ class MyAudioHandler extends BaseAudioHandler {
             currentSongNotifier.value!,
             _player.state.duration,
           );
-          if (generation != _loadGeneration) return;
         }
       }
       if (durationSeconds > 0) {
@@ -670,7 +648,6 @@ class MyAudioHandler extends BaseAudioHandler {
     final currentSong = playQueue[currentIndex];
 
     await _setLyricsAndUpdateColors(currentSong);
-    if (generation != _loadGeneration) return;
 
     currentSongNotifier.value = currentSong;
 
@@ -704,7 +681,6 @@ class MyAudioHandler extends BaseAudioHandler {
           case .feiniu:
             final client = streamClient;
             final authenticated = client is FeiniuClient && await client.ping();
-            if (generation != _loadGeneration) return;
             if (!authenticated) {
               throw StateError('Feiniu music authentication failed');
             }
@@ -715,7 +691,6 @@ class MyAudioHandler extends BaseAudioHandler {
             break;
         }
         resource ??= currentSong.path!;
-        if (generation != _loadGeneration) return;
 
         await _player.open(
           Media(
@@ -728,12 +703,10 @@ class MyAudioHandler extends BaseAudioHandler {
         );
       }
 
-      if (generation != _loadGeneration) return;
       if (isPlayingNotifier.value) {
         _playLastSyncTime = DateTime.now();
       }
     } catch (error) {
-      if (generation != _loadGeneration) return;
       stop();
       logger.output("[${currentSong.title}] $error");
     }
@@ -794,7 +767,6 @@ class MyAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> stop() async {
-    ++_loadGeneration;
     isLoading = false;
     _player.stop();
     updateIsPlaying(false);

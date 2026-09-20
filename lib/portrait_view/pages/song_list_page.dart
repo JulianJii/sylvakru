@@ -45,7 +45,7 @@ extension _SongListPage on _SongListState {
         },
       ),
       selectButton(context),
-      if (!isRanking && !isRecently) sortButton(context),
+      if (!isFrequently && !isRecently) sortButton(context),
       if (playlist != null && playlist!.isNotFavorite) deleteButton(context),
     ];
 
@@ -75,7 +75,7 @@ extension _SongListPage on _SongListState {
                   songList: currentSongList,
                   playlist: playlist,
                   folder: folder,
-                  isRanking: isRanking,
+                  isFrequently: isFrequently,
                   isRecently: isRecently,
                   isLibrary: isLibrary,
                   reorderable: reorderable,
@@ -395,7 +395,7 @@ extension _SongListPage on _SongListState {
           visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
           onTap: () =>
               audioHandler.setPlayQueue(currentSongList, 0, targetIndex: index),
-          trailing: isRanking
+          trailing: isFrequently && sourceType != .emby
               ? SizedBox(
                   width: 100,
                   child: Row(
