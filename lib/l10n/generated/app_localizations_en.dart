@@ -581,7 +581,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chooseMusicSource => 'Choose a Music Source';
 
   @override
-  String get feiniuMusic => 'FnOS Music';
+  String get feiniuMusic => 'Feiniu Music';
 
   @override
   String get feiniuConnectionFailed =>
