@@ -286,14 +286,6 @@ class LayersManager {
       rootKey = foldersKey;
       visibleNotifier = foldersVisibleNotifier;
       detailLayer = SingleFolderLayer(folder: detail);
-    } else if (label == 'ranking') {
-      rootKey = rankingKey;
-      visibleNotifier = rankingVisibleNotifier;
-      detailLayer = SingleAlbumLayer(album: detail, rootLabel: 'ranking');
-    } else if (label == 'recently') {
-      rootKey = recentlyKey;
-      visibleNotifier = recentlyVisibleNotifier;
-      detailLayer = SingleAlbumLayer(album: detail, rootLabel: 'recently');
     } else if (label == 'playlists') {
       rootKey = playlistsKey;
       visibleNotifier = playlistsVisibleNotifier;
@@ -357,12 +349,6 @@ class LayersManager {
     } else if (label == 'albums') {
       rootKey = albumsKey;
       visibleNotifier = albumsVisibleNotifier;
-    } else if (label == 'ranking') {
-      rootKey = rankingKey;
-      visibleNotifier = rankingVisibleNotifier;
-    } else if (label == 'recently') {
-      rootKey = recentlyKey;
-      visibleNotifier = recentlyVisibleNotifier;
     } else if (label == 'folders') {
       rootKey = foldersKey;
       visibleNotifier = foldersVisibleNotifier;
@@ -422,13 +408,12 @@ class LayersManager {
     } else if (layer is SingleAlbumLayer) {
       return layer.album.picture;
     } else if (layer is SingleFolderLayer) {
-      final songList = layer.folder.songList;
-      return getFirstSong(songList)?.picture;
+      return getFirstSong(layer.folder.songList)?.picture;
     } else if (layer is SongsLayer) {
       return getFirstSong(library.songList)?.picture;
-    } else if (layer is RankingLayer && sourceType != .navidrome) {
+    } else if (layer is RankingLayer) {
       return getFirstSong(history.rankingSongList)?.picture;
-    } else if (layer is RecentlyLayer && sourceType != .navidrome) {
+    } else if (layer is RecentlyLayer) {
       return getFirstSong(history.recentlySongList)?.picture;
     } else if (layer is SinglePlaylistLayer) {
       return layer.playlist.getCoverSong()?.picture;
@@ -487,8 +472,6 @@ class LayersManager {
     popDetail('artists', executePop: false);
     popDetail('albums', executePop: false);
     popDetail('folders', executePop: false);
-    popDetail('ranking', executePop: false);
-    popDetail('recently', executePop: false);
     popDetail('playlists', executePop: false);
     while (await layersManager.popDetail('settings')) {}
 
@@ -506,8 +489,6 @@ class LayersManager {
     popDetail('artists', executePop: false);
     popDetail('albums', executePop: false);
     popDetail('folders', executePop: false);
-    popDetail('ranking', executePop: false);
-    popDetail('recently', executePop: false);
     popDetail('playlists', executePop: false);
 
     layerInfoMap.removeWhere((k, v) => k != topRootLayer);

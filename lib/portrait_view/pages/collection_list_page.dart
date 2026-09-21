@@ -234,7 +234,6 @@ extension _CollectionListPage on CollectionListState {
                       width: constraints.maxWidth - 10,
                       child: Text(
                         text,
-                        textAlign: .center,
                         style: TextStyle(overflow: TextOverflow.ellipsis),
                       ),
                     ),

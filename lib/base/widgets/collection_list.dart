@@ -27,6 +27,7 @@ abstract class CollectionListState extends State<CollectionList> {
 
   List<MyPicture?> currentPictureList = [];
   List<String> currentTextList = [];
+
   List<int>? currentSubCountList;
   List<Function> currentOnTapList = [];
 
@@ -59,20 +60,6 @@ abstract class CollectionListState extends State<CollectionList> {
 
   void updateCurrentList();
 
-  Future<void> fetchCollectionList() async {}
-
-  bool reachEnd = false;
-  void _onScroll() async {
-    if (preparing | reachEnd) {
-      return;
-    }
-
-    if (scrollController.position.pixels >=
-        scrollController.position.maxScrollExtent) {
-      await fetchCollectionList();
-    }
-  }
-
   void onSearch() {
     if (preparing) {
       return;
@@ -86,7 +73,6 @@ abstract class CollectionListState extends State<CollectionList> {
 
     isAscendingNotifier?.addListener(updateCurrentList);
     textController.addListener(onSearch);
-    scrollController.addListener(_onScroll);
   }
 
   @override

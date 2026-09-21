@@ -9,6 +9,7 @@ part 'database.g.dart';
 
 class MetadataItems extends Table {
   TextColumn get id => text()();
+  TextColumn get coverId => text().nullable()();
 
   /// 曲库中的显示顺序。此前没有这一列，顺序是靠在整表重写时重新分配
   /// rowid 隐式保存的，重排因此必须重写每一行。显式存下来之后，
@@ -66,6 +67,7 @@ class MetadataDB extends _$MetadataDB {
         }
 
         if (from < 4) {
+          await m.addColumn(metadataItems, metadataItems.coverId);
           await m.addColumn(metadataItems, metadataItems.orderIndex);
           // 旧库的顺序原本由 rowid 承载，按 rowid 回填即可让升级前后
           // 读出来的曲库顺序完全一致。
