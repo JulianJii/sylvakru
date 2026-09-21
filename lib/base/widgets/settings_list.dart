@@ -74,11 +74,12 @@ class _SettingsListState extends State<SettingsList> {
                   ),
                   subtitle: Text(
                     l10n.settingCount(
-                      Platform.isAndroid
-                          ? 17
-                          : Platform.isIOS
-                          ? 16
-                          : 13,
+                      (Platform.isAndroid
+                              ? 17
+                              : Platform.isIOS
+                              ? 16
+                              : 13) +
+                          (isNotStreamSource ? 1 : 0),
                     ),
                     style: TextStyle(fontSize: 12),
                   ),
