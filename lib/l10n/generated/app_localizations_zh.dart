@@ -335,9 +335,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reset => '重置';
 
   @override
-  String get desktopLyrics => '桌面歌词';
-
-  @override
   String get horizontal => '水平';
 
   @override
@@ -350,7 +347,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get unlock => '解锁';
 
   @override
-  String get closeAction => '点关闭退出';
+  String get closeAction => '关闭按钮退出应用';
 
   @override
   String get exit => '退出';
@@ -417,9 +414,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get playOrPause => '播放/暂停';
-
-  @override
-  String get unlockDeskLrc => '解锁桌面歌词';
 
   @override
   String get autoPlayOnStartup => '启动后自动播放';

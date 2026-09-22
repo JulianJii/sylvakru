@@ -23,6 +23,7 @@ import 'package:sylvakru/online_music/online_download_panel.dart';
 import 'package:sylvakru/online_music/online_music_api.dart';
 import 'package:sylvakru/online_music/online_player_detail.dart';
 import 'package:sylvakru/online_music/online_search_history.dart';
+import 'package:sylvakru/online_music/online_window_drag_area.dart';
 
 /// 在线音乐页的配色。
 ///
@@ -451,45 +452,50 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
   // -------------------------------------------------------------- 顶部工具栏
 
   Widget _buildToolbar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 18, 5, 10),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [OnlinePalette.primaryLight, OnlinePalette.primary],
+    // 这一页整屏盖住了主界面，标题栏那块拖动区跟着一起被盖住，所以顶栏自己
+    // 要补一套：拖动移动窗口 + 右侧标准窗口按钮（见 online_window_drag_area）。
+    return WindowDragArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 18, 5, 10),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [OnlinePalette.primaryLight, OnlinePalette.primary],
+                ),
+                borderRadius: BorderRadius.circular(10),
               ),
-              borderRadius: BorderRadius.circular(10),
+              child: Icon(
+                Icons.graphic_eq_rounded,
+                size: 20,
+                color: OnlinePalette.onPrimary,
+              ),
             ),
-            child: Icon(
-              Icons.graphic_eq_rounded,
-              size: 20,
-              color: OnlinePalette.onPrimary,
+            const SizedBox(width: 12),
+            const Text(
+              '在线音乐',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
             ),
-          ),
-          const SizedBox(width: 12),
-          const Text(
-            '在线音乐',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: 14),
-          const Spacer(),
-          const _DownloadIndicator(),
-          IconButton(
-            tooltip: '音源设置',
-            onPressed: _openSettings,
-            icon: const Icon(Icons.tune_rounded),
-          ),
-          const SizedBox(width: 6),
-          IconButton(
-            tooltip: '返回本地音乐',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.home_rounded),
-          ),
-        ],
+            const SizedBox(width: 14),
+            const Spacer(),
+            const _DownloadIndicator(),
+            IconButton(
+              tooltip: '音源设置',
+              onPressed: _openSettings,
+              icon: const Icon(Icons.tune_rounded),
+            ),
+            const SizedBox(width: 6),
+            IconButton(
+              tooltip: '返回本地音乐',
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.home_rounded),
+            ),
+            WindowControls(color: OnlinePalette.textDim),
+          ],
+        ),
       ),
     );
   }

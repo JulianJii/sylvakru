@@ -722,12 +722,6 @@ abstract class AppLocalizations {
   /// **'Reset'**
   String get reset;
 
-  /// No description provided for @desktopLyrics.
-  ///
-  /// In en, this message translates to:
-  /// **'Desktop Lyrics'**
-  String get desktopLyrics;
-
   /// No description provided for @horizontal.
   ///
   /// In en, this message translates to:
@@ -889,12 +883,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Play/Pause'**
   String get playOrPause;
-
-  /// No description provided for @unlockDeskLrc.
-  ///
-  /// In en, this message translates to:
-  /// **'Unlock Desktop Lyrics'**
-  String get unlockDeskLrc;
 
   /// No description provided for @autoPlayOnStartup.
   ///

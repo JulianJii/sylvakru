@@ -60,7 +60,12 @@ extension FoldersPanel on FoldersLayer {
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
 
-          sliver: SliverList.builder(
+          sliver: SliverGrid.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 64,
+              crossAxisSpacing: 20,
+            ),
             itemCount: library.folderList.length,
             itemBuilder: (_, index) {
               final folder = library.folderList[index];

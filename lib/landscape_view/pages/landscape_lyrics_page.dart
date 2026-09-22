@@ -8,7 +8,6 @@ import 'package:sylvakru/base/audio_handler.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/app.dart';
 import 'package:sylvakru/base/asset_images.dart';
-import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/base/widgets/buttons.dart';
 import 'package:sylvakru/base/widgets/cover_art_widget.dart';
 import 'package:sylvakru/base/data/setting.dart';
@@ -494,17 +493,6 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
                       height: 10,
                       width: width * 0.5,
                       child: VolumeBar(activeColor: value),
-                    ),
-                    SizedBox(
-                      width: 40,
-                      child: IconButton(
-                        onPressed: () async {
-                          showCenterMessage('Desktop lyrics has been removed');
-                        },
-                        icon: const ImageIcon(desktopLyricsImage, size: 25),
-
-                        color: value,
-                      ),
                     ),
                     Spacer(),
                   ],

@@ -335,9 +335,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reset => 'Reset';
 
   @override
-  String get desktopLyrics => 'Desktop Lyrics';
-
-  @override
   String get horizontal => 'Horizontal';
 
   @override
@@ -417,9 +414,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playOrPause => 'Play/Pause';
-
-  @override
-  String get unlockDeskLrc => 'Unlock Desktop Lyrics';
 
   @override
   String get autoPlayOnStartup => 'Auto-Play on Startup';

@@ -14,6 +14,7 @@ import 'package:sylvakru/base/services/lyric.dart';
 import 'package:sylvakru/base/utils/metadata_utils.dart';
 import 'package:sylvakru/online_music/online_music_api.dart';
 import 'package:sylvakru/online_music/online_music_page.dart';
+import 'package:sylvakru/online_music/online_window_drag_area.dart';
 
 /// 当前在播的在线曲目。搜索/歌单结果是唯一来源（封面、歌词都靠它）。
 final ValueNotifier<OnlineTrack?> onlineNowPlaying = ValueNotifier(null);
@@ -142,51 +143,55 @@ class _OnlinePlayerDetailPageState extends State<OnlinePlayerDetailPage> {
   // ------------------------------------------------------------------ 顶部
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: '收起',
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: ListenableBuilder(
-              listenable: currentSongNotifier,
-              builder: (context, _) {
-                final song = currentSongNotifier.value;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _track == null ? '在线音乐' : getTitle(song),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _track == null ? '还没有在播放' : getArtist(song),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: OnlinePalette.textFaint,
-                      ),
-                    ),
-                  ],
-                );
-              },
+    // 与在线音乐主页同理：整屏页面盖住了主界面标题栏，顶栏要自带拖动区
+    // 和窗口按钮，否则这里拖不动窗口。
+    return WindowDragArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: '收起',
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28),
             ),
-          ),
-          const SizedBox(width: 48),
-        ],
+            const SizedBox(width: 4),
+            Expanded(
+              child: ListenableBuilder(
+                listenable: currentSongNotifier,
+                builder: (context, _) {
+                  final song = currentSongNotifier.value;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _track == null ? '在线音乐' : getTitle(song),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _track == null ? '还没有在播放' : getArtist(song),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: OnlinePalette.textFaint,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            WindowControls(color: OnlinePalette.textDim),
+          ],
+        ),
       ),
     );
   }

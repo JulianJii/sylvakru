@@ -2,8 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/audio_handler.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/app.dart';
-import 'package:sylvakru/base/asset_images.dart';
-import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/base/widgets/buttons.dart';
 import 'package:sylvakru/base/widgets/cover_art_widget.dart';
 import 'package:sylvakru/base/utils/dynamic_lyrics_page_route.dart';
@@ -55,7 +53,7 @@ class BottomControl extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Expanded(flex: 2, child: otherControls(context)),
+                  Expanded(flex: 2, child: otherControls()),
                 ],
               ],
             ),
@@ -151,16 +149,10 @@ class BottomControl extends StatelessWidget {
     ];
   }
 
-  Widget otherControls(BuildContext context) {
+  Widget otherControls() {
     return Row(
       children: [
         Spacer(),
-        IconButton(
-          onPressed: () {
-            showCenterMessage('Desktop lyrics has been removed');
-          },
-          icon: const ImageIcon(desktopLyricsImage, size: 25),
-        ),
         ValueListenableBuilder(
           valueListenable: iconColor.valueNotifier,
           builder: (context, value, child) {
