@@ -117,8 +117,6 @@ Widget rootTabContent(
 /// The online music entry, right before the settings button every root tab
 /// ends its row with.
 Widget rootTabOnlineMusicButton(BuildContext context) {
-  final l10n = AppLocalizations.of(context);
-
   return IconButton(
     tooltip: "网络音乐",
     padding: EdgeInsets.zero,

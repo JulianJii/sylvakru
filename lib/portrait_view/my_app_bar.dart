@@ -7,14 +7,14 @@ import 'package:sylvakru/layer/layers_manager.dart';
 ///
 /// It has exactly two shapes and the constructor you pick says which one you
 /// get, so a root tab page can no longer grow a back arrow the way the songs /
-/// ranking / recently tabs used to:
+/// frequently / recently tabs used to:
 ///
 /// * `MyAppBar()` - a root tab page. Shows the localized app name and **never** a
 ///   leading widget, because a tab is not somewhere you go back from.
 /// * `MyAppBar.detail()` - a page stacked on top of a root layer. Shows a back
 ///   arrow instead of the title.
 class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
-  /// Top bar of a root tab page (songs / ranking / recently / folders /
+  /// Top bar of a root tab page (songs / frequently / recently / folders /
   /// artists / albums / playlists). [bottom] hangs the tab bar of the portrait
   /// home under the one shared top bar.
   const MyAppBar({super.key, this.actions, this.bottom})

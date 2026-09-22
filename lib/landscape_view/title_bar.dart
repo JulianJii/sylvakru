@@ -223,8 +223,6 @@ class _TitleBarState extends State<TitleBar> {
             icon: Icon(Icons.cloud_outlined),
           ),
 
-        if (!isMobile) windowControls(),
-
         if (widget.isMainPage)
           IconButton(
             onPressed: () {
@@ -232,6 +230,9 @@ class _TitleBarState extends State<TitleBar> {
             },
             icon: ImageIcon(settingImage),
           ),
+
+        if (!isMobile) windowControls(),
+
 
         SizedBox(width: isMobile ? 10 : 30),
       ],

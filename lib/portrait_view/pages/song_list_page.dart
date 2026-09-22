@@ -4,7 +4,7 @@ extension _SongListPage on _SongListState {
   Widget pageView(BuildContext context) {
     final actions = topBarActions(context);
 
-    // a root tab (songs / ranking / recently) is rendered into the portrait
+    // a root tab (songs / frequently / recently) is rendered into the portrait
     // home, which owns the one top bar and the tab bar - this page only says
     // what goes in the top bar, the home adds the settings button itself. A page
     // stacked on top of a root layer keeps its own top bar with the back arrow.
