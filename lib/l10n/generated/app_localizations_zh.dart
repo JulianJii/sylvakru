@@ -350,7 +350,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get unlock => '解锁';
 
   @override
-  String get closeAction => '关闭动作';
+  String get closeAction => '点关闭退出';
 
   @override
   String get exit => '退出';
