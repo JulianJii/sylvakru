@@ -12,13 +12,14 @@
 
 ## 上游版本
 
-已同步上游 4.3.0（Flutter 3.47.5，`upstream-repo/main` 的 `bf83099`）：
+已同步上游 4.3.0（Flutter 3.47.5，`upstream-repo/main` 的 `3e44f4b`）：
 
 - 新增首页层（`home_layer.dart`），桌面端支持鼠标滚动
 - 飞牛 / Emby 播放历史
+- 飞牛支持 FN ID 与 NAS 授权登录：地址栏可直接填 FN ID（自动展开为 `https://<id>.fnos.net` 并走 relay），令牌存安全存储；新增 `webview_flutter` 依赖，授权入口仅 Android / iOS / macOS 显示
 - 原“排行”改名为“最多播放”
 - Android 播放修复：media-kit 切到 openssl 构建（`AfalpHy/media-kit` git 依赖，见 `pubspec.yaml` 的 `dependency_overrides`；具体 commit 以 `pubspec.lock` 的 `resolved-ref` 为准）
-- 其它修复：Emby 未登录时播放失败、首次同步与收藏加载、竖屏歌词页小尺寸截断、大图模式歌单封面 180 → 240、文件夹入口仅非流媒体源显示
+- 其它修复：Emby 未登录时播放失败、首次同步与收藏加载、竖屏歌词页小尺寸截断、大图模式歌单封面 180 → 240、文件夹入口仅非流媒体源显示、开启启动自动播放时无法进入歌词页
 
 ## 许可证
 
