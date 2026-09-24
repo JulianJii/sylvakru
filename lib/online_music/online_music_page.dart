@@ -25,6 +25,9 @@ import 'package:sylvakru/online_music/online_player_detail.dart';
 import 'package:sylvakru/online_music/online_search_history.dart';
 import 'package:sylvakru/online_music/online_window_drag_area.dart';
 
+/// 歌单曲目每页条数。歌单详情接口不给总数，有没有下一页就看这一页满没满。
+const int _playlistTrackPageSize = 50;
+
 /// 在线音乐页的配色。
 ///
 /// 全部映射到本地音乐那套全局主题（[ColorManager]），所以页面跟随
@@ -156,6 +159,27 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
   List<OnlineTrack> _playlistTracks = const [];
   bool _loadingPlaylistTracks = false;
 
+  /// 歌曲搜索结果分页。每个音源各翻各的页，哪个返回空就把它记为翻完，
+  /// 全部翻完才到底 —— 酷我一页 30 条、咪咕 20 条，谁先见底谁先停。
+  int _songPage = 1;
+  bool _songHasMore = false;
+  bool _songLoadingMore = false;
+  final Set<String> _songExhausted = <String>{};
+
+  /// 歌单搜索结果分页。
+  int _playlistPage = 1;
+  bool _playlistHasMore = false;
+  bool _playlistLoadingMore = false;
+  final Set<String> _playlistExhausted = <String>{};
+
+  /// 歌单曲目（详情页）分页。
+  int _playlistTrackPage = 1;
+  bool _playlistTrackHasMore = false;
+  bool _playlistTrackLoadingMore = false;
+
+  /// 歌单曲目请求代次号：换歌单后丢弃上一个歌单在途的分页请求。
+  int _playlistTrackGeneration = 0;
+
   bool _searching = false;
   String? _message;
 
@@ -210,6 +234,35 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
     );
   }
 
+  /// 当前音源筛选下的参与搜索的音源列表。
+  List<String> get _activeSources => _sourceFilter == 'all'
+      ? onlineSearchers.keys.toList()
+      : [_sourceFilter];
+
+  /// [exhausted] 里没记过的音源，也就是还能往下翻的那几个。
+  List<String> _remainingSources(Set<String> exhausted) =>
+      _activeSources.where((source) => !exhausted.contains(source)).toList();
+
+  void _resetSongPaging() {
+    _songPage = 1;
+    _songHasMore = false;
+    _songLoadingMore = false;
+    _songExhausted.clear();
+  }
+
+  void _resetPlaylistPaging() {
+    _playlistPage = 1;
+    _playlistHasMore = false;
+    _playlistLoadingMore = false;
+    _playlistExhausted.clear();
+  }
+
+  void _resetPlaylistTrackPaging() {
+    _playlistTrackPage = 1;
+    _playlistTrackHasMore = false;
+    _playlistTrackLoadingMore = false;
+  }
+
   Future<void> _search() async {
     final keyword = _keywordController.text.trim();
     if (keyword.isEmpty || _searching) return;
@@ -221,29 +274,117 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
     setState(() {
       _searching = true;
       _message = null;
-      if (_searchType == OnlineSearchType.playlist) {
+      if (_searchType == OnlineSearchType.song) {
+        _results = const [];
+        _resetSongPaging();
+      } else {
         _selectedPlaylist = null;
         _playlistTracks = const [];
+        _playlistResults = const [];
+        _resetPlaylistPaging();
       }
     });
 
-    final sources = _sourceFilter == 'all'
-        ? onlineSearchers.keys.toList()
-        : [_sourceFilter];
+    final page = await _fetchSearchPage(
+      sources: _activeSources,
+      keyword: keyword,
+      page: 1,
+      generation: generation,
+    );
+    if (page == null) return;
+    setState(() {
+      _searching = false;
+      if (_searchType == OnlineSearchType.song) {
+        _results = page.allTracks;
+        _songHasMore = _songHasMoreAfter(page);
+        _message = _failureMessage(page.failures, _results.isEmpty);
+      } else {
+        _playlistResults = page.allPlaylists;
+        _playlistHasMore = _playlistHasMoreAfter(page);
+        _message = _failureMessage(page.failures, _playlistResults.isEmpty);
+      }
+    });
+  }
 
-    final mergedTracks = <OnlineTrack>[];
-    final mergedPlaylists = <OnlinePlaylist>[];
+  Future<void> _loadMoreSongs() async {
+    if (_songLoadingMore || !_songHasMore) return;
+    final keyword = _keywordController.text.trim();
+    if (keyword.isEmpty) return;
+    final sources = _remainingSources(_songExhausted);
+    if (sources.isEmpty) return;
+
+    setState(() => _songLoadingMore = true);
+    final page = await _fetchSearchPage(
+      sources: sources,
+      keyword: keyword,
+      page: _songPage + 1,
+      generation: _searchGeneration,
+    );
+    // 返回 null 说明期间又发起了新搜索，那次 setState 已经重置了加载标志。
+    if (page == null) return;
+    setState(() {
+      _songLoadingMore = false;
+      _songPage = _songPage + 1;
+      _results = [..._results, ...page.allTracks];
+      _songHasMore = _songHasMoreAfter(page);
+    });
+  }
+
+  Future<void> _loadMorePlaylists() async {
+    if (_playlistLoadingMore || !_playlistHasMore) return;
+    final keyword = _keywordController.text.trim();
+    if (keyword.isEmpty) return;
+    final sources = _remainingSources(_playlistExhausted);
+    if (sources.isEmpty) return;
+
+    setState(() => _playlistLoadingMore = true);
+    final page = await _fetchSearchPage(
+      sources: sources,
+      keyword: keyword,
+      page: _playlistPage + 1,
+      generation: _searchGeneration,
+    );
+    if (page == null) return;
+    setState(() {
+      _playlistLoadingMore = false;
+      _playlistPage = _playlistPage + 1;
+      _playlistResults = [..._playlistResults, ...page.allPlaylists];
+      _playlistHasMore = _playlistHasMoreAfter(page);
+    });
+  }
+
+  /// 向 [sources] 里的每个音源请求第 [page] 页搜索结果，按音源分桶返回。
+  ///
+  /// 返回 null 表示这次请求已经过期（期间又发起了新搜索），调用方直接丢弃。
+  Future<_SearchPage?> _fetchSearchPage({
+    required List<String> sources,
+    required String keyword,
+    required int page,
+    required int generation,
+  }) async {
+    final songs = _searchType == OnlineSearchType.song;
+    final tracks = <String, List<OnlineTrack>>{};
+    final playlists = <String, List<OnlinePlaylist>>{};
     final failures = <String>[];
     await Future.wait(
       sources.map((source) async {
         final searcher = onlineSearchers[source]!;
         try {
-          if (_searchType == OnlineSearchType.song) {
-            mergedTracks.addAll(await searcher.search(keyword));
+          if (songs) {
+            tracks[source] = await searcher.search(keyword, page: page);
           } else {
-            mergedPlaylists.addAll(await searcher.searchPlaylists(keyword));
+            playlists[source] = await searcher.searchPlaylists(
+              keyword,
+              page: page,
+            );
           }
         } catch (e) {
+          // 失败的音源也记一页空结果：分页要能收敛到底，否则页脚会一直转圈。
+          if (songs) {
+            tracks[source] = const [];
+          } else {
+            playlists[source] = const [];
+          }
           // 一个音源挂掉不该拖垮另一个，收集起来一起提示。
           failures.add(
             '${searcher.label}：${e is OnlineApiException ? e.message : e}',
@@ -252,52 +393,100 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       }),
     );
 
-    if (!mounted || generation != _searchGeneration) return;
-    setState(() {
-      _searching = false;
-      if (_searchType == OnlineSearchType.song) {
-        _results = mergedTracks;
-        _message = failures.isEmpty
-            ? null
-            : mergedTracks.isEmpty
-            ? failures.join('\n')
-            : '部分音源不可用 —— ${failures.join('；')}';
-      } else {
-        _playlistResults = mergedPlaylists;
-        _message = failures.isEmpty
-            ? null
-            : mergedPlaylists.isEmpty
-            ? failures.join('\n')
-            : '部分音源不可用 —— ${failures.join('；')}';
-      }
-    });
+    if (!mounted || generation != _searchGeneration) return null;
+    return _SearchPage(tracks: tracks, playlists: playlists, failures: failures);
+  }
+
+  /// 把返回空结果的音源记进 [exhausted]，剩下的还有没有得翻。
+  bool _songHasMoreAfter(_SearchPage page) {
+    _songExhausted.addAll(_exhaustedOf(page.tracks));
+    return _remainingSources(_songExhausted).isNotEmpty;
+  }
+
+  bool _playlistHasMoreAfter(_SearchPage page) {
+    _playlistExhausted.addAll(_exhaustedOf(page.playlists));
+    return _remainingSources(_playlistExhausted).isNotEmpty;
+  }
+
+  Iterable<String> _exhaustedOf<T>(Map<String, List<T>> perSource) =>
+      perSource.entries
+          .where((entry) => entry.value.isEmpty)
+          .map((entry) => entry.key);
+
+  /// 部分音源失败的提示：一个都没搜出来就把错误原样列出，否则只挂一句提醒。
+  String? _failureMessage(List<String> failures, bool emptyResults) {
+    if (failures.isEmpty) return null;
+    if (emptyResults) return failures.join('\n');
+    return '部分音源不可用 —— ${failures.join('；')}';
   }
 
   Future<void> _openPlaylist(OnlinePlaylist playlist) async {
+    final searcher = onlineSearchers[playlist.source];
+    if (searcher == null) {
+      _showMessage('未找到对应音源解析器');
+      return;
+    }
+
+    final generation = ++_playlistTrackGeneration;
     setState(() {
       _selectedPlaylist = playlist;
       _playlistTracks = const [];
       _loadingPlaylistTracks = true;
       _message = null;
+      _resetPlaylistTrackPaging();
     });
 
-    final searcher = onlineSearchers[playlist.source];
-    if (searcher == null) {
-      setState(() => _loadingPlaylistTracks = false);
-      _showMessage('未找到对应音源解析器');
-      return;
-    }
+    await _loadPlaylistTracksPage(
+      searcher: searcher,
+      playlist: playlist,
+      page: 1,
+      generation: generation,
+    );
+  }
 
+  Future<void> _loadMorePlaylistTracks() async {
+    if (_playlistTrackLoadingMore || !_playlistTrackHasMore) return;
+    final playlist = _selectedPlaylist;
+    final searcher = playlist == null ? null : onlineSearchers[playlist.source];
+    if (playlist == null || searcher == null) return;
+
+    setState(() => _playlistTrackLoadingMore = true);
+    await _loadPlaylistTracksPage(
+      searcher: searcher,
+      playlist: playlist,
+      page: _playlistTrackPage + 1,
+      generation: _playlistTrackGeneration,
+    );
+  }
+
+  /// 取歌单的第 [page] 页曲目。第 1 页覆盖列表（换了歌单），后续页追加。
+  Future<void> _loadPlaylistTracksPage({
+    required OnlineSearcher searcher,
+    required OnlinePlaylist playlist,
+    required int page,
+    required int generation,
+  }) async {
     try {
-      final tracks = await searcher.getPlaylistTracks(playlist.id);
-      if (!mounted) return;
+      final tracks = await searcher.getPlaylistTracks(
+        playlist.id,
+        page: page,
+        pageSize: _playlistTrackPageSize,
+      );
+      if (!mounted || generation != _playlistTrackGeneration) return;
       setState(() {
-        _playlistTracks = tracks;
+        _playlistTracks = page == 1 ? tracks : [..._playlistTracks, ...tracks];
+        _playlistTrackPage = page;
+        _playlistTrackHasMore = tracks.length >= _playlistTrackPageSize;
         _loadingPlaylistTracks = false;
+        _playlistTrackLoadingMore = false;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loadingPlaylistTracks = false);
+      setState(() {
+        _loadingPlaylistTracks = false;
+        _playlistTrackLoadingMore = false;
+        _playlistTrackHasMore = false;
+      });
       _showMessage('加载歌单曲目失败：${e is OnlineApiException ? e.message : e}');
     }
   }
@@ -544,6 +733,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                             _playlistResults = const [];
                             _selectedPlaylist = null;
                             _playlistTracks = const [];
+                            _resetSongPaging();
+                            _resetPlaylistPaging();
+                            _resetPlaylistTrackPaging();
                           });
                         },
                       ),
@@ -564,16 +756,20 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                     children: [
                       _buildTypeFilter(),
                       const SizedBox(width: 12),
-                      _SourceFilterChips(
+                      _SourceFilterSelect(
                         value: _sourceFilter,
-                        onChanged: (value) =>
-                            setState(() => _sourceFilter = value),
+                        onChanged: (value) {
+                          if (value == _sourceFilter) return;
+                          setState(() => _sourceFilter = value);
+                          // 音源筛选点了就生效：立刻用新音源重搜一次。
+                          _search();
+                        },
                       ),
                     ],
                   ),
                 ),
               ),
-              if (_searchType == OnlineSearchType.song) ...[
+              if (_searchType == OnlineSearchType.song)
                 _QualityMenu(
                   valueListenable: onlineSettings.quality,
                   onSelected: (value) {
@@ -581,29 +777,6 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                     onlineSettings.save();
                   },
                 ),
-                const SizedBox(width: 10),
-              ],
-              FilledButton(
-                onPressed: _searching ? null : _search,
-                style: FilledButton.styleFrom(
-                  backgroundColor: OnlinePalette.surfaceAlt,
-                  foregroundColor: OnlinePalette.text,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 22,
-                    vertical: 14,
-                  ),
-                ),
-                child: _searching
-                    ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: OnlinePalette.primaryLight,
-                        ),
-                      )
-                    : const Text('搜索'),
-              ),
             ],
           ),
           if (_message != null) ...[
@@ -760,30 +933,46 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
         listenable: currentSongNotifier,
         builder: (context, _) {
           final currentId = currentSongNotifier.value?.id;
-          return GridView.builder(
-            padding: EdgeInsets.symmetric(
-              horizontal: isLandscape ? 20 : 0,
-              vertical: 8,
-            ),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: isLandscape ? 2 : 1,
-              mainAxisExtent: 64,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 4,
-            ),
-            itemCount: _results.length,
-            itemBuilder: (context, index) {
-              final track = _results[index];
-              return _TrackRow(
-                index: index + 1,
-                track: track,
-                qualityLabel: onlineSettings.quality.value,
-                isCurrent: track.id == currentId,
-                isResolving: _resolvingId == track.id,
-                onTap: () => _play(track),
-                onDownload: () => _download(track),
-              );
+          return NotificationListener<ScrollNotification>(
+            // pixels > 0：结果还没占满一屏时不自动翻页，免得首屏自己连拉好几页。
+            onNotification: (notification) {
+              if (notification.metrics.pixels > 0 &&
+                  notification.metrics.extentAfter < 400) {
+                _loadMoreSongs();
+              }
+              return false;
             },
+            child: GridView.builder(
+              padding: EdgeInsets.symmetric(
+                horizontal: isLandscape ? 20 : 0,
+                vertical: 8,
+              ),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: isLandscape ? 2 : 1,
+                mainAxisExtent: 64,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 4,
+              ),
+              itemCount: _results.length + 1,
+              itemBuilder: (context, index) {
+                if (index >= _results.length) {
+                  return _ListFooter(
+                    hasMore: _songHasMore,
+                    onLoadMore: _loadMoreSongs,
+                  );
+                }
+                final track = _results[index];
+                return _TrackRow(
+                  index: index + 1,
+                  track: track,
+                  qualityLabel: onlineSettings.quality.value,
+                  isCurrent: track.id == currentId,
+                  isResolving: _resolvingId == track.id,
+                  onTap: () => _play(track),
+                  onDownload: () => _download(track),
+                );
+              },
+            ),
           );
         },
       );
@@ -798,26 +987,41 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       return _EmptyState(searching: _searching, isPlaylist: true);
     }
 
-    return GridView.builder(
-      padding: EdgeInsets.symmetric(
-        horizontal: isLandscape ? 20 : 0,
-        vertical: 8,
-      ),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isLandscape ? 2 : 1,
-        mainAxisExtent: 72,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 4,
-      ),
-      itemCount: _playlistResults.length,
-      itemBuilder: (context, index) {
-        final playlist = _playlistResults[index];
-        return _PlaylistRow(
-          index: index + 1,
-          playlist: playlist,
-          onTap: () => _openPlaylist(playlist),
-        );
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.pixels > 0 &&
+            notification.metrics.extentAfter < 400) {
+          _loadMorePlaylists();
+        }
+        return false;
       },
+      child: GridView.builder(
+        padding: EdgeInsets.symmetric(
+          horizontal: isLandscape ? 20 : 0,
+          vertical: 8,
+        ),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: isLandscape ? 2 : 1,
+          mainAxisExtent: 72,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 4,
+        ),
+        itemCount: _playlistResults.length + 1,
+        itemBuilder: (context, index) {
+          if (index >= _playlistResults.length) {
+            return _ListFooter(
+              hasMore: _playlistHasMore,
+              onLoadMore: _loadMorePlaylists,
+            );
+          }
+          final playlist = _playlistResults[index];
+          return _PlaylistRow(
+            index: index + 1,
+            playlist: playlist,
+            onTap: () => _openPlaylist(playlist),
+          );
+        },
+      ),
     );
   }
 
@@ -836,6 +1040,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                 onPressed: () => setState(() {
                   _selectedPlaylist = null;
                   _playlistTracks = const [];
+                  // 作废还在途的分页请求：别让它们回来接着往空列表里追加。
+                  _playlistTrackGeneration++;
+                  _resetPlaylistTrackPaging();
                 }),
                 icon: const Icon(Icons.arrow_back_rounded),
               ),
@@ -962,30 +1169,46 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                   listenable: currentSongNotifier,
                   builder: (context, _) {
                     final currentId = currentSongNotifier.value?.id;
-                    return GridView.builder(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isLandscape ? 20 : 0,
-                        vertical: 8,
-                      ),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: isLandscape ? 2 : 1,
-                        mainAxisExtent: 64,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 4,
-                      ),
-                      itemCount: _playlistTracks.length,
-                      itemBuilder: (context, index) {
-                        final track = _playlistTracks[index];
-                        return _TrackRow(
-                          index: index + 1,
-                          track: track,
-                          qualityLabel: onlineSettings.quality.value,
-                          isCurrent: track.id == currentId,
-                          isResolving: _resolvingId == track.id,
-                          onTap: () => _play(track),
-                          onDownload: () => _download(track),
-                        );
+                    return NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification.metrics.pixels > 0 &&
+                            notification.metrics.extentAfter < 400) {
+                          _loadMorePlaylistTracks();
+                        }
+                        return false;
                       },
+                      child: GridView.builder(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isLandscape ? 20 : 0,
+                          vertical: 8,
+                        ),
+                        gridDelegate:
+                            SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: isLandscape ? 2 : 1,
+                              mainAxisExtent: 64,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 4,
+                            ),
+                        itemCount: _playlistTracks.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index >= _playlistTracks.length) {
+                            return _ListFooter(
+                              hasMore: _playlistTrackHasMore,
+                              onLoadMore: _loadMorePlaylistTracks,
+                            );
+                          }
+                          final track = _playlistTracks[index];
+                          return _TrackRow(
+                            index: index + 1,
+                            track: track,
+                            qualityLabel: onlineSettings.quality.value,
+                            isCurrent: track.id == currentId,
+                            isResolving: _resolvingId == track.id,
+                            onTap: () => _play(track),
+                            onDownload: () => _download(track),
+                          );
+                        },
+                      ),
                     );
                   },
                 ),
@@ -1142,8 +1365,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
 // 小组件
 // ---------------------------------------------------------------------------
 
-class _SourceFilterChips extends StatelessWidget {
-  const _SourceFilterChips({required this.value, required this.onChanged});
+/// 音源筛选的下拉选择器。样式与 [_QualityMenu] 保持一致，选中即回调。
+class _SourceFilterSelect extends StatelessWidget {
+  const _SourceFilterSelect({required this.value, required this.onChanged});
 
   final String value;
   final ValueChanged<String> onChanged;
@@ -1151,30 +1375,60 @@ class _SourceFilterChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = <String, String>{
-      'all': '全部',
+      'all': '音源',
       for (final searcher in onlineSearchers.values)
         searcher.source: searcher.label,
     };
-    return Wrap(
-      spacing: 8,
-      children: [
+    return PopupMenuButton<String>(
+      tooltip: '音源筛选',
+      initialValue: value,
+      onSelected: onChanged,
+      color: OnlinePalette.surfaceAlt,
+      itemBuilder: (context) => [
         for (final entry in entries.entries)
-          ChoiceChip(
-            label: Text(entry.value),
-            selected: value == entry.key,
-            onSelected: (_) => onChanged(entry.key),
-            showCheckmark: false,
-            selectedColor: OnlinePalette.primary.withAlpha(70),
-            backgroundColor: OnlinePalette.surfaceAlt,
-            side: BorderSide.none,
-            labelStyle: TextStyle(
-              fontSize: 13,
-              color: value == entry.key
-                  ? OnlinePalette.onPrimary
-                  : OnlinePalette.textDim,
+          PopupMenuItem<String>(
+            value: entry.key,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  child: entry.key == value
+                      ? Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: OnlinePalette.primaryLight,
+                        )
+                      : null,
+                ),
+                Text(entry.value),
+              ],
             ),
           ),
       ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: OnlinePalette.surfaceAlt,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.library_music_rounded,
+              size: 16,
+              color: OnlinePalette.textDim,
+            ),
+            const SizedBox(width: 6),
+            Text(entries[value] ?? value, style: const TextStyle(fontSize: 13)),
+            Icon(
+              Icons.expand_more_rounded,
+              size: 16,
+              color: OnlinePalette.textDim,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1369,6 +1623,80 @@ class _EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 列表末尾的页脚：还有下一页就挂载时的转圈（点一下可以手动再拉一次），
+/// 翻到底了就一行"没有更多了"。
+class _ListFooter extends StatelessWidget {
+  const _ListFooter({required this.hasMore, required this.onLoadMore});
+
+  final bool hasMore;
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!hasMore) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Center(
+          child: Text(
+            '没有更多了',
+            style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+          ),
+        ),
+      );
+    }
+    return InkWell(
+      onTap: onLoadMore,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: OnlinePalette.primaryLight,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '正在加载更多…',
+                style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 一次分页请求的结果，按音源分桶带回。
+///
+/// 分桶是为了算"谁还能往下翻"：混在一起就分不出某一页是谁返回空了。
+class _SearchPage {
+  _SearchPage({
+    required this.tracks,
+    required this.playlists,
+    required this.failures,
+  });
+
+  final Map<String, List<OnlineTrack>> tracks;
+  final Map<String, List<OnlinePlaylist>> playlists;
+  final List<String> failures;
+
+  List<OnlineTrack> get allTracks => [
+    for (final list in tracks.values) ...list,
+  ];
+
+  List<OnlinePlaylist> get allPlaylists => [
+    for (final list in playlists.values) ...list,
+  ];
 }
 
 class _HistoryChip extends StatelessWidget {
