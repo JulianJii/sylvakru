@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import home_widget
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, UIContextMenuInteractionDelegate {
@@ -17,7 +18,13 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+
     let registrar = self.registrar(forPlugin: "NativeBridge")
+
+    audioControlChannel = FlutterMethodChannel(
+      name: "com.afalphy.audio_control",
+      binaryMessenger: registrar!.messenger()
+    )
 
     let bookmarkChannel = FlutterMethodChannel(
       name: "com.afalphy.bookmark_manager",

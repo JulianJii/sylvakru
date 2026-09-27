@@ -70,7 +70,6 @@ dependencies:
   lpinyin: ^2.0.3
   http: ^1.6.0
   url_launcher: ^6.3.2
-  webview_flutter: ^4.14.1
   dio: ^5.11.1
   crypto: ^3.0.7
   charset: ^2.0.1
@@ -86,6 +85,7 @@ dependencies:
     git:
       url: https://github.com/axel10/windows_taskbar.git
       ref: master
+  home_widget: ^0.10.0
 
   intl: any
   material_ui: any

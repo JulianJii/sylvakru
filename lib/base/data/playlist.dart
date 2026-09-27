@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:home_widget/home_widget.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/app.dart';
+import 'package:sylvakru/base/audio_handler.dart';
 import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/base/services/picture_service.dart';
 import 'package:sylvakru/base/services/stream_client.dart';
@@ -302,7 +304,7 @@ class Playlist {
   }
 }
 
-void toggleFavoriteState(MyAudioMetadata song) {
+void toggleFavoriteState(MyAudioMetadata song) async {
   final favorite = playlistManager.playlists.first;
   if (!favorite.canModify) {
     return;
@@ -312,5 +314,12 @@ void toggleFavoriteState(MyAudioMetadata song) {
     favorite.remove([song]);
   } else {
     favorite.add([song]);
+  }
+  if (Platform.isIOS && song == currentSongNotifier.value) {
+    await HomeWidget.saveWidgetData(
+      'is_favorite',
+      currentSongNotifier.value!.isFavoriteNotifier.value,
+    );
+    await HomeWidget.updateWidget(iOSName: 'widgets');
   }
 }
