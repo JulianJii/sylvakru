@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:sylvakru/base/asset_images.dart';
 import 'package:sylvakru/base/audio_handler.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/app.dart';
@@ -29,26 +30,36 @@ class BottomControl extends StatelessWidget {
                 Expanded(flex: 2, child: currentSongTile(context)),
 
                 if (isMobile) ...[
-                  Expanded(flex: 2, child: bottomSeekBar()),
                   Expanded(
                     flex: 2,
                     child: Row(
-                      mainAxisAlignment: .end,
+                      mainAxisAlignment: .center,
                       children: [...playControls(), SizedBox(width: 10)],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Padding(
+                      padding: EdgeInsets.only(right: 20),
+                      child: bottomSeekBar(),
                     ),
                   ),
                 ] else ...[
                   Expanded(
                     flex: 3,
                     child: Column(
+                      crossAxisAlignment: .stretch,
                       children: [
+                        Padding(
+                          padding: EdgeInsets.only(right: 20),
+                          child: Transform.translate(
+                            offset: Offset(0, 6),
+                            child: bottomSeekBar(),
+                          ),
+                        ),
                         Row(
                           mainAxisAlignment: .center,
                           children: playControls(),
-                        ),
-                        Transform.translate(
-                          offset: Offset(0, -6),
-                          child: bottomSeekBar(),
                         ),
                       ],
                     ),
@@ -124,28 +135,25 @@ class BottomControl extends StatelessWidget {
   }
 
   Widget bottomSeekBar() {
-    return SizedBox(
-      width: isMobile ? 300 : 400,
-      child: ValueListenableBuilder(
-        valueListenable: currentSongNotifier,
-        builder: (_, _, _) {
-          return SeekBar(widgetHeight: 20, seekBarHeight: 10);
-        },
-      ),
+    return ValueListenableBuilder(
+      valueListenable: currentSongNotifier,
+      builder: (_, _, _) {
+        return SeekBar(widgetHeight: 20, seekBarHeight: 10);
+      },
     );
   }
 
   List<Widget> playControls() {
     return [
-      playModeButton(25),
+      playModeButton(32),
 
-      skip2PreviousButton(25),
+      skip2PreviousButton(32),
 
-      playOrPauseButton(35),
+      playOrPauseButton(40),
 
-      skip2NextButton(25),
+      skip2NextButton(32),
 
-      showPlayQueueButton(25),
+      showPlayQueueButton(32),
     ];
   }
 
@@ -156,23 +164,86 @@ class BottomControl extends StatelessWidget {
         ValueListenableBuilder(
           valueListenable: iconColor.valueNotifier,
           builder: (context, value, child) {
-            return Speaker(color: value);
+            return _VolumePopover(color: value);
           },
-        ),
-        Center(
-          child: SizedBox(
-            height: 20,
-            width: 120,
-            child: ValueListenableBuilder(
-              valueListenable: volumeBarColor.valueNotifier,
-              builder: (context, value, child) {
-                return VolumeBar(activeColor: value);
-              },
-            ),
-          ),
         ),
         SizedBox(width: 30),
       ],
+    );
+  }
+}
+
+class _VolumePopover extends StatelessWidget {
+  const _VolumePopover({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: currentSongNotifier,
+      builder: (context, _, _) {
+        return MenuAnchor(
+          style: MenuStyle(
+            backgroundColor: WidgetStatePropertyAll(
+              Color.alphaBlend(
+                colorManager.getSpecificMenuColor(),
+                colorManager.getSpecificBgBaseColor(),
+              ),
+            ),
+            padding: WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            ),
+            shape: WidgetStatePropertyAll(
+              SmoothRectangleBorder(
+                smoothness: 1,
+                borderRadius: .circular(10),
+              ),
+            ),
+            elevation: WidgetStatePropertyAll(6),
+          ),
+          builder: (context, controller, child) {
+            return IconButton(
+              color: color,
+              icon: ValueListenableBuilder(
+                valueListenable: volumeNotifier,
+                builder: (_, volume, _) {
+                  return ImageIcon(
+                    volume == 0 ? speakerOffImage : speakerImage,
+                    size: 25,
+                  );
+                },
+              ),
+              onPressed: () {
+                if (controller.isOpen) {
+                  controller.close();
+                } else {
+                  controller.open();
+                }
+              },
+            );
+          },
+          menuChildren: [
+            SizedBox(
+              width: 200,
+              height: 48,
+              child: Row(
+                children: [
+                  Speaker(color: color),
+                  Expanded(
+                    child: ValueListenableBuilder(
+                      valueListenable: volumeBarColor.valueNotifier,
+                      builder: (context, value, child) {
+                        return VolumeBar(activeColor: value);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
