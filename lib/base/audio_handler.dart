@@ -53,6 +53,18 @@ final volumeNotifier = ValueNotifier(0.3);
 
 final autoPlayOnStartupNotifier = ValueNotifier(false);
 
+Future<void> updateNowPlayingWidget() async {
+  // home_widget 只实现 android/ios，桌面端调用会抛 MissingPluginException
+  if (!isMobile) {
+    return;
+  }
+  await HomeWidget.updateWidget(
+    androidName: 'NowPlayingWidgetReceiver',
+    qualifiedAndroidName: 'com.afalphy.sylvakru.NowPlayingWidgetReceiver',
+    iOSName: 'NowPlaying',
+  );
+}
+
 Future<void> initAudioService() async {
   MediaKit.ensureInitialized();
   try {
@@ -167,6 +179,8 @@ class MyAudioHandler extends BaseAudioHandler {
 
   bool isLoading = false;
 
+  int _lyricsIndex = 0;
+
   MyAudioHandler() {
     // avoid reading .lrc files
     (_player.platform as NativePlayer).setProperty('sub-auto', 'no');
@@ -220,11 +234,33 @@ class MyAudioHandler extends BaseAudioHandler {
       layersManager.updateBackground();
     });
 
-    // _player.stream.position.listen((position) {
-    //   if (isLoading) {
-    //     return;
-    //   }
-    // });
+    _player.stream.position.listen((position) async {
+      if (!isMobile) {
+        return;
+      }
+      if (currentSongNotifier.value == null ||
+          isLoading ||
+          position < Duration.zero) {
+        return;
+      }
+
+      int current = -1;
+      final lines = currentSongNotifier.value!.parsedLyrics!.lines;
+      for (int i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        if (position < line.start) {
+          break;
+        }
+        if (current == -1 || line.start > lines[current].start) {
+          current = i;
+        }
+      }
+      if (current != _lyricsIndex) {
+        _lyricsIndex = current;
+        await HomeWidget.saveWidgetData('lyricsIndex', _lyricsIndex);
+        await updateNowPlayingWidget();
+      }
+    });
   }
 
   /// 修正 Android 上的音频输出后端。
@@ -265,9 +301,9 @@ class MyAudioHandler extends BaseAudioHandler {
       if (!windowIsClosed) {
         setupTaskbar();
       }
-    } else if (Platform.isIOS) {
+    } else if (isMobile) {
       await HomeWidget.saveWidgetData('is_playing', isPlayingNotifier.value);
-      await HomeWidget.updateWidget(iOSName: 'widgets');
+      await updateNowPlayingWidget();
     }
   }
 
@@ -734,34 +770,53 @@ class MyAudioHandler extends BaseAudioHandler {
     if (start == null) {
       _positionState.writeAsString(Duration.zero.inMilliseconds.toString());
     }
-    if (Platform.isIOS) {
-      await HomeWidget.saveWidgetData('title', getTitle(currentSong));
-      await HomeWidget.saveWidgetData('artist', getArtist(currentSong));
-      await HomeWidget.saveWidgetData('album', getAlbum(currentSong));
+    if (isMobile) {
+      try {
+        await HomeWidget.saveWidgetData('title', getTitle(currentSong));
+        await HomeWidget.saveWidgetData('artist', getArtist(currentSong));
+        await HomeWidget.saveWidgetData('album', getAlbum(currentSong));
 
-      await HomeWidget.saveFile(
-        'coverPath',
-        await File(currentSong.picture.path).readAsBytes(),
-      );
+        await HomeWidget.saveFile(
+          'coverPath',
+          await File(currentSong.picture.path).readAsBytes(),
+        );
 
-      await HomeWidget.saveWidgetData(
-        'coverColor',
-        currentCoverArtColor.toARGB32(),
-      );
+        await HomeWidget.saveWidgetData(
+          'coverColor',
+          currentCoverArtColor.toARGB32(),
+        );
 
-      await HomeWidget.saveWidgetData(
-        'foregroundColor',
-        contrastColorTheme.regular.toARGB32(),
-      );
+        await HomeWidget.saveWidgetData(
+          'foregroundColor',
+          contrastColorTheme.accent.toARGB32(),
+        );
 
-      await HomeWidget.saveWidgetData('is_playing', isPlayingNotifier.value);
+        await HomeWidget.saveWidgetData('is_playing', isPlayingNotifier.value);
 
-      await HomeWidget.saveWidgetData(
-        'is_favorite',
-        currentSong.isFavoriteNotifier.value,
-      );
+        await HomeWidget.saveWidgetData(
+          'is_favorite',
+          currentSong.isFavoriteNotifier.value,
+        );
 
-      await HomeWidget.updateWidget(iOSName: 'widgets');
+        await HomeWidget.saveWidgetData(
+          'lyrics',
+          currentSong.parsedLyrics?.lines
+              .map((e) => e.text)
+              .toList()
+              .join('\n'),
+        );
+
+        _lyricsIndex = 0;
+        await HomeWidget.saveWidgetData('lyricsIndex', _lyricsIndex);
+      } catch (error) {
+        logger.output("widget save error: $error");
+      }
+      await updateNowPlayingWidget();
+      // Playlists 小组件目前只有 iOS 版：安卓端只传 iOSName 会因找不到
+      // AppWidgetProvider 抛 PlatformException(-3)
+      if (Platform.isIOS) {
+        await HomeWidget.updateWidget(iOSName: 'Playlists');
+      }
     }
   }
 
@@ -848,6 +903,8 @@ class MyAudioHandler extends BaseAudioHandler {
   }
 
   void togglePlay() {
+    if (playQueue.isEmpty) return;
+
     if (isPlayingNotifier.value) {
       pause();
     } else {

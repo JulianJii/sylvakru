@@ -52,10 +52,9 @@ Future<void> main() async {
   }
 
   await logger.init();
-  if (Platform.isIOS) {
+  if (isMobile) {
     await HomeWidget.setAppGroupId('group.com.afalphy.sylvakru');
-  }
-  if (!isMobile) {
+  } else {
     if (kReleaseMode) {
       await SingleInstance.start();
     }

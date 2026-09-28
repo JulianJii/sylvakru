@@ -27,7 +27,9 @@ struct NowPlayingEntry: TimelineEntry {
   let postion: Double
   let duration: Double
   let lyrics: String
+  let lyricsIndex: Int
   let family: WidgetFamily
+
 }
 
 struct NowPlayingTimelineProvider: TimelineProvider {
@@ -46,6 +48,7 @@ struct NowPlayingTimelineProvider: TimelineProvider {
       postion: 0,
       duration: 0,
       lyrics: "Lyrics",
+      lyricsIndex: 0,
       family: context.family
     )
   }
@@ -68,6 +71,7 @@ struct NowPlayingTimelineProvider: TimelineProvider {
       postion: 0,
       duration: 0,
       lyrics: sharedDefaults?.string(forKey: "lyrics") ?? "",
+      lyricsIndex: sharedDefaults?.integer(forKey: "lyricsIndex") ?? 0,
       family: context.family
     )
   }
@@ -97,19 +101,69 @@ struct NowPlayingTimelineProvider: TimelineProvider {
 struct NowPlayingWidgetEntryView: View {
   var entry: NowPlayingTimelineProvider.Entry
 
-  var body: some View {
-    switch entry.family {
-    case .systemSmall:
-      smallView
-    case .systemMedium:
-      mediumView
-    case .systemLarge:
-      largeView
-    case .systemExtraLarge:
-      extraLargeView
-    @unknown default:
-      smallView
+  var lyricsLines: [String] {
+    entry.lyrics.components(separatedBy: "\n")
+  }
+
+  func lyricsView(fontSize: CGFloat, offset: CGFloat) -> some View {
+    GeometryReader { geometry in
+      let lineHeight = fontSize + 6
+
+      let rawCount = max(1, Int(geometry.size.height / lineHeight))
+      let visibleLineCount = rawCount % 2 == 0 ? rawCount + 1 : rawCount
+
+      let halfCount = visibleLineCount / 2
+      let start = entry.lyricsIndex - halfCount
+      let end = start + visibleLineCount
+
+      VStack(spacing: 6) {
+        ForEach(start..<end, id: \.self) { index in
+          let isValid = index >= 0 && index < lyricsLines.count
+          let lineText = isValid ? lyricsLines[index] : ""
+          let isCurrent = index == entry.lyricsIndex
+
+          Text(lineText)
+            .font(
+              .system(
+                size: isCurrent ? fontSize : fontSize - 3,
+                weight: isCurrent ? .bold : .medium
+              )
+            )
+            .foregroundColor(
+              Color(argb: entry.foregroundColor)
+                .opacity(isCurrent ? 1.0 : 0.5)
+            )
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .frame(height: lineHeight)
+            .opacity(isValid ? (isCurrent ? 1.0 : 0.5) : 0.0)
+        }
+      }
+      .frame(width: geometry.size.width, height: geometry.size.height, alignment: .center)
+      .offset(y: offset)
+      .clipped()
     }
+  }
+
+  var body: some View {
+    Group {
+      switch entry.family {
+      case .systemSmall:
+        smallView
+      case .systemMedium:
+        mediumView
+      case .systemLarge:
+        largeView
+      case .systemExtraLarge, .systemExtraLargePortrait:
+        extraLargeView
+      @unknown default:
+        smallView
+      }
+    }
+    .containerBackground(
+      Color(argb: entry.coverColor),
+      for: .widget
+    )
   }
 
   var smallView: some View {
@@ -175,10 +229,7 @@ struct NowPlayingWidgetEntryView: View {
       .padding(.trailing, 8)
       .padding(.bottom, 16)
     }
-    .containerBackground(
-      Color(argb: entry.coverColor),
-      for: .widget
-    )
+
   }
 
   var mediumView: some View {
@@ -194,18 +245,22 @@ struct NowPlayingWidgetEntryView: View {
       }
 
       VStack(alignment: .leading) {
-        // 顶部：歌曲信息 + 收藏
-        HStack {
+        HStack(alignment: .top) {
           VStack(alignment: .leading, spacing: 4) {
             Text(entry.title)
               .font(.system(size: 14, weight: .bold))
               .foregroundColor(Color(argb: entry.foregroundColor))
-              .lineLimit(2)
+              .lineLimit(1)
 
-            Text(entry.artist + " - " + entry.album)
+            Text(entry.artist)
               .font(.system(size: 12))
               .foregroundColor(Color(argb: entry.foregroundColor))
-              .lineLimit(2)
+              .lineLimit(1)
+
+            Text(entry.album)
+              .font(.system(size: 12))
+              .foregroundColor(Color(argb: entry.foregroundColor))
+              .lineLimit(1)
 
           }
 
@@ -213,7 +268,7 @@ struct NowPlayingWidgetEntryView: View {
 
           Button(intent: BackgroundIntent(function: "toggleFavorite")) {
             Image(systemName: entry.isFavorite ? "star.fill" : "star")
-              .font(.system(size: 25))
+              .font(.system(size: 20))
               .foregroundColor(entry.isFavorite ? .red : Color(argb: entry.foregroundColor))
           }
           .buttonStyle(.plain)
@@ -221,7 +276,6 @@ struct NowPlayingWidgetEntryView: View {
 
         Spacer()
 
-        // 底部：上一首 / 播放 / 下一首
         HStack {
           Button(intent: BackgroundIntent(function: "skipToPrevious")) {
             Image(systemName: "backward.fill")
@@ -256,68 +310,43 @@ struct NowPlayingWidgetEntryView: View {
       .padding(.trailing, 12)
     }
 
-    .containerBackground(
-      Color(argb: entry.coverColor),
-      for: .widget
-    )
   }
 
   var largeView: some View {
-    VStack(spacing: 16) {
+    VStack {
       mediumView
-        .frame(height: 100)
+        .frame(height: 140)
+        .padding(.top, 10)
 
       Divider()
+        .overlay(Color(argb: entry.foregroundColor).opacity(0.8))
+        .padding(.horizontal, 10)
 
-      VStack(spacing: 8) {
-
-        Spacer()
-
-        Text(entry.lyrics)
-          .font(.system(size: 15, weight: .medium))
-          .multilineTextAlignment(.center)
-          .lineLimit(3)
-          .foregroundColor(Color(argb: entry.foregroundColor))
-
-        Spacer()
-      }
-      .frame(maxWidth: .infinity)
-      .padding(.horizontal)
+      lyricsView(fontSize: 16, offset: -16)
+        .frame(maxHeight: .infinity)
+        .padding(.horizontal)
     }
-    .padding(10)
-    .containerBackground(Color(argb: entry.coverColor), for: .widget)
   }
 
   var extraLargeView: some View {
-    VStack(spacing: 20) {
+    VStack {
       mediumView
-        .frame(height: 110)
+        .frame(height: 140)
+        .padding(.top, 10)
 
       Divider()
+        .overlay(Color(argb: entry.foregroundColor).opacity(0.8))
+        .padding(.horizontal, 10)
 
-      VStack(spacing: 14) {
-
-        Spacer()
-
-        Text(entry.lyrics)
-          .font(.system(size: 22, weight: .bold))
-          .multilineTextAlignment(.center)
-          .lineLimit(5)
-          .padding(.horizontal, 20)
-
-        Spacer()
-      }
-      .frame(maxWidth: .infinity)
+      lyricsView(fontSize: 18, offset: -24)
+        .frame(maxHeight: .infinity)
+        .padding(.horizontal)
     }
-    .padding(16)
-    .containerBackground(
-      Color(argb: entry.coverColor),
-      for: .widget)
   }
 }
 
 struct NowPlaying: Widget {
-  let kind: String = "widgets"
+  let kind: String = "NowPlaying"
 
   var body: some WidgetConfiguration {
     StaticConfiguration(
@@ -328,11 +357,25 @@ struct NowPlaying: Widget {
     }
     .configurationDisplayName("Now Playing")
     .contentMarginsDisabled()
-    .supportedFamilies([
-      .systemSmall,
-      .systemMedium,
-      .systemLarge,
-      .systemExtraLarge,
-    ])
+    .supportedFamilies(supportedFamilies)
+  }
+
+  private var supportedFamilies: [WidgetFamily] {
+    if #available(iOS 27.0, *) {
+      return [
+        .systemSmall,
+        .systemMedium,
+        .systemLarge,
+        .systemExtraLarge,
+        .systemExtraLargePortrait,
+      ]
+    } else {
+      return [
+        .systemSmall,
+        .systemMedium,
+        .systemLarge,
+        .systemExtraLarge,
+      ]
+    }
   }
 }

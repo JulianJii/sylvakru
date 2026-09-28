@@ -6,12 +6,19 @@ plugins {
 
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
+dependencies {
+    implementation("androidx.glance:glance-appwidget:1.1.1")
+    implementation("androidx.media:media:1.7.0")
 }
 
 android {
@@ -67,6 +74,9 @@ android {
         }
     }
     
+    buildFeatures {
+        compose = true
+    }
 }
 
 kotlin {

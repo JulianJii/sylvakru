@@ -12,7 +12,6 @@ import home_widget
 
 var audioControlChannel: FlutterMethodChannel?
 
-@available(iOS 16, *)
 @available(iOSApplicationExtension, unavailable)
 extension BackgroundIntent: ForegroundContinuableIntent {}
 struct BackgroundIntent: AppIntent {
