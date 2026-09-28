@@ -320,7 +320,7 @@ class _OnlinePlayerDetailPageState extends State<OnlinePlayerDetailPage> {
             children: [
               IconButton(
                 tooltip: '上一首',
-                iconSize: 34,
+                iconSize: 40,
                 onPressed: widget.onPrevious,
                 icon: const Icon(Icons.skip_previous_rounded),
               ),
@@ -330,8 +330,8 @@ class _OnlinePlayerDetailPageState extends State<OnlinePlayerDetailPage> {
                 builder: (context, isPlaying, _) {
                   return IconButton.filled(
                     tooltip: isPlaying ? '暂停' : '播放',
-                    iconSize: 38,
-                    padding: const EdgeInsets.all(14),
+                    iconSize: 46,
+                    padding: const EdgeInsets.all(16),
                     style: IconButton.styleFrom(
                       backgroundColor: OnlinePalette.primary,
                       foregroundColor: OnlinePalette.onPrimary,
@@ -348,7 +348,7 @@ class _OnlinePlayerDetailPageState extends State<OnlinePlayerDetailPage> {
               const SizedBox(width: 26),
               IconButton(
                 tooltip: '下一首',
-                iconSize: 34,
+                iconSize: 40,
                 onPressed: widget.onNext,
                 icon: const Icon(Icons.skip_next_rounded),
               ),

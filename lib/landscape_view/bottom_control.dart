@@ -24,7 +24,8 @@ class BottomControl extends StatelessWidget {
         return Material(
           color: value,
           child: SizedBox(
-            height: 75,
+            // 比按钮行高出的余量：进度条 20 + 播放/暂停按钮 64。
+            height: 90,
             child: Row(
               children: [
                 Expanded(flex: 2, child: currentSongTile(context)),
@@ -145,15 +146,15 @@ class BottomControl extends StatelessWidget {
 
   List<Widget> playControls() {
     return [
-      playModeButton(32),
+      playModeButton(38),
 
-      skip2PreviousButton(32),
+      skip2PreviousButton(38),
 
-      playOrPauseButton(40),
+      playOrPauseButton(48),
 
-      skip2NextButton(32),
+      skip2NextButton(38),
 
-      showPlayQueueButton(32),
+      showPlayQueueButton(38),
     ];
   }
 
@@ -210,7 +211,7 @@ class _VolumePopover extends StatelessWidget {
                 builder: (_, volume, _) {
                   return ImageIcon(
                     volume == 0 ? speakerOffImage : speakerImage,
-                    size: 25,
+                    size: 30,
                   );
                 },
               ),

@@ -235,9 +235,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
   }
 
   /// 当前音源筛选下的参与搜索的音源列表。
-  List<String> get _activeSources => _sourceFilter == 'all'
-      ? onlineSearchers.keys.toList()
-      : [_sourceFilter];
+  List<String> get _activeSources =>
+      _sourceFilter == 'all' ? onlineSearchers.keys.toList() : [_sourceFilter];
 
   /// [exhausted] 里没记过的音源，也就是还能往下翻的那几个。
   List<String> _remainingSources(Set<String> exhausted) =>
@@ -394,7 +393,11 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
     );
 
     if (!mounted || generation != _searchGeneration) return null;
-    return _SearchPage(tracks: tracks, playlists: playlists, failures: failures);
+    return _SearchPage(
+      tracks: tracks,
+      playlists: playlists,
+      failures: failures,
+    );
   }
 
   /// 把返回空结果的音源记进 [exhausted]，剩下的还有没有得翻。
@@ -408,10 +411,10 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
     return _remainingSources(_playlistExhausted).isNotEmpty;
   }
 
-  Iterable<String> _exhaustedOf<T>(Map<String, List<T>> perSource) =>
-      perSource.entries
-          .where((entry) => entry.value.isEmpty)
-          .map((entry) => entry.key);
+  Iterable<String> _exhaustedOf<T>(Map<String, List<T>> perSource) => perSource
+      .entries
+      .where((entry) => entry.value.isEmpty)
+      .map((entry) => entry.key);
 
   /// 部分音源失败的提示：一个都没搜出来就把错误原样列出，否则只挂一句提醒。
   String? _failureMessage(List<String> failures, bool emptyResults) {
@@ -1182,13 +1185,12 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                           horizontal: isLandscape ? 20 : 0,
                           vertical: 8,
                         ),
-                        gridDelegate:
-                            SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: isLandscape ? 2 : 1,
-                              mainAxisExtent: 64,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 4,
-                            ),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: isLandscape ? 2 : 1,
+                          mainAxisExtent: 64,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 4,
+                        ),
                         itemCount: _playlistTracks.length + 1,
                         itemBuilder: (context, index) {
                           if (index >= _playlistTracks.length) {
@@ -1228,9 +1230,6 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       ]),
       builder: (context, _) {
         final song = currentSongNotifier.value;
-        // 音量调节仅在横屏下提供，竖屏状态下一律取消
-        final size = MediaQuery.sizeOf(context);
-        final isLandscape = size.width > size.height;
         return Container(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
           color: OnlinePalette.surface,
@@ -1308,6 +1307,10 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                 ),
               ),
               const SizedBox(width: 16),
+              // 中间：进度条（与详情页共用一个组件）。
+              const Expanded(flex: 2, child: OnlineSeekBar()),
+              const SizedBox(width: 16),
+              // 右侧：上一首 / 播放 / 下一首。
               IconButton(
                 tooltip: '上一首',
                 onPressed: _canPrevious ? () => _playRelative(-1) : null,
@@ -1340,12 +1343,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                 onPressed: _canNext ? () => _playRelative(1) : null,
                 icon: const Icon(Icons.skip_next_rounded),
               ),
-              const SizedBox(width: 12),
-              if (isLandscape) ...[
-                const Expanded(child: OnlineSeekBar()),
-                const SizedBox(width: 16),
-                Flexible(child: _VolumeControl()),
-              ],
+              const SizedBox(width: 8),
+              // 最右：音量按钮，点击弹出音量条。
+              const _VolumeButton(),
             ],
           ),
         );
@@ -2253,35 +2253,69 @@ class _Tag extends StatelessWidget {
   }
 }
 
-class _VolumeControl extends StatelessWidget {
-  const _VolumeControl();
+/// 音量按钮：点开后用 [MenuAnchor] 弹一条音量滑块。
+///
+/// 不用 PopupMenuButton —— 它点哪都关菜单，滑块拖不动。
+class _VolumeButton extends StatelessWidget {
+  const _VolumeButton();
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
       valueListenable: volumeNotifier,
       builder: (context, volume, _) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              volume <= 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-              size: 18,
-              color: OnlinePalette.textDim,
+        return MenuAnchor(
+          style: MenuStyle(
+            backgroundColor: WidgetStatePropertyAll(OnlinePalette.surfaceAlt),
+            padding: WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 8),
             ),
-            Expanded(
-              child: Slider(
-                value: volume.clamp(0.0, 1.0),
-                onChanged: (value) {
-                  volumeNotifier.value = value;
-                  audioHandler.setVolume(value);
-                },
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            elevation: WidgetStatePropertyAll(6),
+          ),
+          menuChildren: [
+            SizedBox(
+              width: 200,
+              height: 44,
+              child: Row(
+                children: [
+                  Icon(
+                    _iconFor(volume),
+                    size: 18,
+                    color: OnlinePalette.textDim,
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: volume.clamp(0.0, 1.0),
+                      onChanged: (value) {
+                        volumeNotifier.value = value;
+                        audioHandler.setVolume(value);
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
+          builder: (context, controller, child) {
+            return IconButton(
+              tooltip: '音量',
+              onPressed: () =>
+                  controller.isOpen ? controller.close() : controller.open(),
+              icon: Icon(_iconFor(volume)),
+            );
+          },
         );
       },
     );
+  }
+
+  IconData _iconFor(double volume) {
+    if (volume <= 0) return Icons.volume_off_rounded;
+    if (volume < 0.5) return Icons.volume_down_rounded;
+    return Icons.volume_up_rounded;
   }
 }
 
