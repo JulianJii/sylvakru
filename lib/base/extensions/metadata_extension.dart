@@ -44,6 +44,8 @@ extension MetadataItemMapper on MetadataItem {
       lastPlayed: lastPlayed != null
           ? DateTime.fromMillisecondsSinceEpoch(lastPlayed!)
           : null,
+
+      lyricsTimeOffset: lyricsTimeOffset,
     );
   }
 }
@@ -80,6 +82,8 @@ extension MyAudioMetadataMapper on MyAudioMetadata {
       playCount: Value(playCount),
 
       lastPlayed: Value(lastPlayed?.millisecondsSinceEpoch),
+
+      lyricsTimeOffset: Value(lyricsTimeOffset),
     );
   }
 }

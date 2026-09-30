@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/asset_images.dart';
+import 'package:sylvakru/base/services/home_widget_service.dart';
 import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/base/widgets/cover_art_widget.dart';
 import 'package:sylvakru/l10n/generated/app_localizations.dart';
@@ -180,6 +181,7 @@ Widget reorderablePlaylistsView(BuildContext context) {
       final item = playlistManager.playlists.removeAt(oldIndex + 1);
       playlistManager.playlists.insert(newIndex + 1, item);
       playlistManager.update();
+      HomeWidgetService.updatePlaylistsWidget();
     },
     onReorderStart: (_) {
       tryVibrate();

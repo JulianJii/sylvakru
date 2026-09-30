@@ -75,10 +75,10 @@ class _SettingsListState extends State<SettingsList> {
                   subtitle: Text(
                     l10n.settingCount(
                       (Platform.isAndroid
-                              ? 17
+                              ? 18
                               : Platform.isIOS
-                              ? 16
-                              : 13) +
+                              ? 17
+                              : 14) +
                           (isNotStreamSource ? 1 : 0),
                     ),
                     style: TextStyle(fontSize: 12),
@@ -130,6 +130,10 @@ class _SettingsListState extends State<SettingsList> {
 
         if (viewModeNotifier.value != .bigPicture)
           sliverBox(paddingIfNeed(isLandscape, fontListTile(context, l10n))),
+
+        sliverBox(
+          paddingIfNeed(isLandscape, controlCenterLyricsListTile(l10n)),
+        ),
 
         if (isMobile && !isTV)
           sliverBox(paddingIfNeed(isLandscape, vibrationListTile(l10n))),
@@ -473,8 +477,10 @@ class _SettingsListState extends State<SettingsList> {
         if (await showConfirmDialog(context, l10n.clear)) {
           showCenterLoading();
           layersManager.clearDataLayers();
+          audioHandler.clear();
           await library.clearCache();
           await library.clearPicture();
+          await library.clearLrcCache();
           playlistManager.updateNotifier.value++;
           removeCenterLoading();
         }
@@ -545,6 +551,26 @@ class _SettingsListState extends State<SettingsList> {
           ),
         );
       },
+    );
+  }
+
+  Widget controlCenterLyricsListTile(AppLocalizations l10n) {
+    return ListTile(
+      leading: ImageIcon(desktopLyricsImage, size: iconSize),
+      title: Text(l10n.controlCenterLyrics),
+      trailing: SizedBox(
+        width: 50,
+        child: MySwitch(
+          valueNotifier: controlCenterLyricsNotifier,
+          onToggleCallBack: () {
+            setting.save();
+            if (!controlCenterLyricsNotifier.value &&
+                currentSongNotifier.value != null) {
+              audioHandler.updateServiceMediaItem(currentSongNotifier.value!);
+            }
+          },
+        ),
+      ),
     );
   }
 

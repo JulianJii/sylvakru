@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:home_widget/home_widget.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/app.dart';
 import 'package:sylvakru/base/audio_handler.dart';
+import 'package:sylvakru/base/services/home_widget_service.dart';
 import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/base/services/picture_service.dart';
 import 'package:sylvakru/base/services/stream_client.dart';
@@ -49,12 +48,11 @@ class PlaylistManager {
   }
 
   Future<void> _prepareForSync() async {
+    _playlistsFile = File(
+      "${getPlaylistConfigPath(sourceType)}/sylvakru_playlists.json",
+    );
+    initFile(_playlistsFile, true);
     if (isStreamSource) {
-      _playlistsFile = File(
-        "${getPlaylistConfigPath(sourceType)}/sylvakru_playlists.json",
-      );
-      initFile(_playlistsFile, true);
-
       final tmpPlaylist = await streamClient?.getPlaylists();
       for (final playlist in tmpPlaylist ?? <Playlist>[]) {
         if (playlist.name == '_sylvakru_play_queue_') {
@@ -67,6 +65,14 @@ class PlaylistManager {
         playlistMap[playlist.name]!.id = playlist.id;
       }
       update();
+    } else {
+      final contentList = await readJsonListFile(_playlistsFile);
+      for (final content in contentList) {
+        final playlist = Playlist(name: content);
+        addPlaylist(playlist);
+      }
+
+      updateNotifier.value++;
     }
   }
 
@@ -75,7 +81,11 @@ class PlaylistManager {
     for (final playlist in playlists) {
       await playlist.load();
     }
-    await updateNowPlayingWidget();
+    await HomeWidgetService.updateNowPlayingWidget();
+
+    if (Platform.isIOS) {
+      HomeWidgetService.updatePlaylistsWidget();
+    }
   }
 
   Future<void> sync() async {
@@ -83,37 +93,9 @@ class PlaylistManager {
     for (final playlist in playlists) {
       await playlist.sync();
     }
-    updatePlaylistsWidget();
-  }
 
-  void updatePlaylistsWidget() async {
-    if (isMobile) {
-      await HomeWidget.saveWidgetData('playlistCount', playlists.length);
-
-      for (int i = 0; i < playlists.length; i++) {
-        final playlist = playlists[i];
-
-        final picturePath = playlist.picture?.path;
-
-        if (picturePath != null && picturePath.isNotEmpty) {
-          await loadPictureSafe(playlist.picture!);
-          final file = File(picturePath);
-
-          if (await file.exists()) {
-            await HomeWidget.saveFile('cover$i', await file.readAsBytes());
-          } else {
-            await HomeWidget.saveFile('cover$i', Uint8List(0));
-          }
-        } else {
-          await HomeWidget.saveFile('cover$i', Uint8List(0));
-        }
-
-        await HomeWidget.saveWidgetData('name$i', playlist.name);
-      }
-      // 安卓端没有 Playlists 小组件，只传 iOSName 会抛 PlatformException(-3)
-      if (Platform.isIOS) {
-        await HomeWidget.updateWidget(iOSName: 'Playlists');
-      }
+    if (Platform.isIOS) {
+      HomeWidgetService.updatePlaylistsWidget();
     }
   }
 
@@ -153,6 +135,10 @@ class PlaylistManager {
     addPlaylist(playlist);
 
     update();
+
+    if (Platform.isIOS) {
+      HomeWidgetService.updatePlaylistsWidget();
+    }
   }
 
   Future<void> deletePlaylist(Playlist playlist) async {
@@ -169,6 +155,10 @@ class PlaylistManager {
     playlistMap.remove(playlist.name);
 
     update();
+
+    if (Platform.isIOS) {
+      HomeWidgetService.updatePlaylistsWidget();
+    }
   }
 
   void update() {
@@ -317,7 +307,11 @@ class Playlist {
     canModify = false;
     changeNotifier.value++;
     playlistManager.updateNotifier.value++;
-    playlistManager.updatePlaylistsWidget();
+
+    if (Platform.isIOS) {
+      HomeWidgetService.updatePlaylistsWidget();
+    }
+
     layersManager.updateBackground();
 
     final songIds = songList.map((e) => e.id).toList();
@@ -350,11 +344,7 @@ void toggleFavoriteState(MyAudioMetadata song) async {
   } else {
     favorite.add([song]);
   }
-  if (isMobile && song == currentSongNotifier.value) {
-    await HomeWidget.saveWidgetData(
-      'is_favorite',
-      currentSongNotifier.value!.isFavoriteNotifier.value,
-    );
-    await updateNowPlayingWidget();
+  if (Platform.isIOS && song == currentSongNotifier.value) {
+    HomeWidgetService.updateIsFavorite();
   }
 }

@@ -582,4 +582,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get savedSuccessfully => '保存成功';
+
+  @override
+  String get controlCenterLyrics => '控制中心歌词';
+
+  @override
+  String get connect => '连接';
+
+  @override
+  String get notConnected => '未连接';
 }

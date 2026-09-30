@@ -40,6 +40,8 @@ class MetadataItems extends Table {
 
   IntColumn get lastPlayed => integer().nullable()();
 
+  IntColumn get lyricsTimeOffset => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -49,7 +51,7 @@ class MetadataDB extends _$MetadataDB {
   MetadataDB(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -74,6 +76,10 @@ class MetadataDB extends _$MetadataDB {
           await customStatement(
             'UPDATE metadata_items SET order_index = rowid',
           );
+        }
+
+        if (from < 5) {
+          await m.addColumn(metadataItems, metadataItems.lyricsTimeOffset);
         }
       },
     );
