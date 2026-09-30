@@ -89,7 +89,7 @@ Future<void> initAudioService() async {
       }
     });
 
-    if (Platform.isIOS) {
+    if (isMobile) {
       const channel = MethodChannel('com.afalphy.audio_control');
 
       channel.setMethodCallHandler((call) async {
