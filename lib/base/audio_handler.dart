@@ -164,6 +164,10 @@ class MyAudioHandler extends BaseAudioHandler {
   DateTime? _playLastSyncTime;
   Duration _playedDuration = Duration.zero;
 
+  /// 第几次换歌。连续换歌时只有最后一次有权解除 [loadingSong]，
+  /// 先结束的那次不能提前解锁。
+  int _loadGeneration = 0;
+
   File? _playQueueState;
   late File _playState;
   late File _equalizerState;
@@ -753,74 +757,81 @@ class MyAudioHandler extends BaseAudioHandler {
     final currentSong = playQueue[currentIndex];
 
     loadingSong = true;
-
-    await _setLyricsAndUpdateColors(currentSong);
-
-    currentSongNotifier.value = currentSong;
-
-    currentLyricsIndexNotifier.value = -1;
-
+    final loadGeneration = ++_loadGeneration;
+    // 中途抛异常也不能让歌词锁挂死：换歌失败后 flag 还为真，歌词就再也不动了。
     try {
-      if (isPlayingNotifier.value) {
-        await setSessionActive(true);
-      }
-      if (currentSong.cacheExist) {
-        await _player.open(
-          Media(currentSong.cachePath!, start: start),
-          play: isPlayingNotifier.value,
-        );
-      } else {
-        String? resource;
-        Map<String, String>? headers;
+      await _setLyricsAndUpdateColors(currentSong);
 
-        switch (sourceType) {
-          case .webdav:
-            final tmpPath = await covertToRedirectPathIfNeed(currentSong.path!);
-            if (tmpPath == null) {
-              headers = webdavClient?.headers;
-            } else {
-              resource = tmpPath;
-            }
-          case .navidrome:
-          case .emby:
-          case .feiniu:
-            await streamClient?.ping();
-            resource = streamClient?.getStreamUrl(currentSong.id);
-            headers = streamClient?.headers;
-          default:
-            break;
+      currentSongNotifier.value = currentSong;
+
+      currentLyricsIndexNotifier.value = -1;
+
+      try {
+        if (isPlayingNotifier.value) {
+          await setSessionActive(true);
         }
-        resource ??= currentSong.path!;
+        if (currentSong.cacheExist) {
+          await _player.open(
+            Media(currentSong.cachePath!, start: start),
+            play: isPlayingNotifier.value,
+          );
+        } else {
+          String? resource;
+          Map<String, String>? headers;
 
-        await _player.open(
-          Media(resource, httpHeaders: headers, start: start),
-          play: isPlayingNotifier.value,
-        );
+          switch (sourceType) {
+            case .webdav:
+              final tmpPath = await covertToRedirectPathIfNeed(
+                currentSong.path!,
+              );
+              if (tmpPath == null) {
+                headers = webdavClient?.headers;
+              } else {
+                resource = tmpPath;
+              }
+            case .navidrome:
+            case .emby:
+            case .feiniu:
+              await streamClient?.ping();
+              resource = streamClient?.getStreamUrl(currentSong.id);
+              headers = streamClient?.headers;
+            default:
+              break;
+          }
+          resource ??= currentSong.path!;
+
+          await _player.open(
+            Media(resource, httpHeaders: headers, start: start),
+            play: isPlayingNotifier.value,
+          );
+        }
+
+        if (isPlayingNotifier.value) {
+          _playLastSyncTime = DateTime.now();
+          _armStallWatchdog();
+        }
+      } catch (error) {
+        stop();
+        logger.output("[${currentSong.title}] $error");
       }
 
-      if (isPlayingNotifier.value) {
-        _playLastSyncTime = DateTime.now();
-        _armStallWatchdog();
+      updateServiceMediaItem(currentSong);
+
+      updatePlaybackState(postion: Duration.zero);
+
+      if (start == null) {
+        _positionState.writeAsString(Duration.zero.inMilliseconds.toString());
       }
-    } catch (error) {
-      stop();
-      logger.output("[${currentSong.title}] $error");
-    }
 
-    updateServiceMediaItem(currentSong);
-
-    updatePlaybackState(postion: Duration.zero);
-
-    if (start == null) {
-      _positionState.writeAsString(Duration.zero.inMilliseconds.toString());
-    }
-
-    loadingSong = false;
-
-    if (Platform.isIOS) {
-      HomeWidgetService.updateNowPlayingWidget();
-      // update colors
-      HomeWidgetService.reloadPlaylistsWidget();
+      if (Platform.isIOS) {
+        HomeWidgetService.updateNowPlayingWidget();
+        // update colors
+        HomeWidgetService.reloadPlaylistsWidget();
+      }
+    } finally {
+      if (loadGeneration == _loadGeneration) {
+        loadingSong = false;
+      }
     }
   }
 

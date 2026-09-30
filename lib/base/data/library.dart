@@ -170,6 +170,10 @@ class Library {
     await _accumulateCache();
   }
 
+  /// 正在写入的缓存临时文件（.part）。清残留时必须跳过它们：Windows 上删一个
+  /// 被打开的文件会抛 FileSystemException，会把整次加载打断。
+  final Set<String> _downloadingCachePaths = {};
+
   Future<void> _accumulateCache() async {
     cacheSizeNotifier.value = 0;
     Directory cacheDir = Directory(getCachesPath(sourceType));
@@ -180,6 +184,9 @@ class Library {
     await for (final file in cacheDir.list()) {
       if (file is File && !file.path.endsWith('.part')) {
         total += await file.length();
+      } else if (file is File && !_downloadingCachePaths.contains(file.path)) {
+        // 上次没下完就退出留下的残骸
+        await file.delete();
       }
     }
     cacheSizeNotifier.value += total / (1024 * 1024);
@@ -190,29 +197,34 @@ class Library {
       return;
     }
     final savePath = "${song.cachePath!}.part";
-    late bool success;
-    // delay download to prevent it from running at the same time as audio loading
-    await Future.delayed(Duration(seconds: 3));
+    _downloadingCachePaths.add(savePath);
+    try {
+      late bool success;
+      // delay download to prevent it from running at the same time as audio loading
+      await Future.delayed(Duration(seconds: 3));
 
-    if (sourceType == .webdav) {
-      success =
-          await webdavClient?.download(
-            remotePath: song.path!,
-            localPath: savePath,
-          ) ??
-          false;
-    } else {
-      success = await streamClient?.downloadSong(song.id, savePath) ?? false;
-    }
-    final tmp = File(savePath);
-    if (await tmp.exists()) {
-      if (success) {
-        cacheSizeNotifier.value += await tmp.length() / (1024 * 1024);
-        await tmp.rename(song.cachePath!);
-        song.cacheExist = true;
+      if (sourceType == .webdav) {
+        success =
+            await webdavClient?.download(
+              remotePath: song.path!,
+              localPath: savePath,
+            ) ??
+            false;
       } else {
-        await tmp.delete();
+        success = await streamClient?.downloadSong(song.id, savePath) ?? false;
       }
+      final tmp = File(savePath);
+      if (await tmp.exists()) {
+        if (success) {
+          cacheSizeNotifier.value += await tmp.length() / (1024 * 1024);
+          await tmp.rename(song.cachePath!);
+          song.cacheExist = true;
+        } else {
+          await tmp.delete();
+        }
+      }
+    } finally {
+      _downloadingCachePaths.remove(savePath);
     }
   }
 
