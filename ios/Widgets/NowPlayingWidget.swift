@@ -14,7 +14,11 @@ extension Color {
   }
 }
 
-struct NowPlayingEntry: TimelineEntry {
+// Every timeline reload re-evaluates the whole view; covers come from the
+// shared WidgetImageCache (keyed by path + mtime so an overwritten cover
+// file invalidates naturally).
+
+struct NowPlayingWidgetEntry: TimelineEntry {
   let date: Date
   let title: String
   let artist: String
@@ -29,80 +33,118 @@ struct NowPlayingEntry: TimelineEntry {
   let lyrics: String
   let lyricsIndex: Int
   let family: WidgetFamily
+  let isPremium: Bool
 
 }
 
-struct NowPlayingTimelineProvider: TimelineProvider {
+// Shown in the gallery and on the home screen before the app has synced any
+// data (fresh install), so the widget never renders blank.
+private func placeholderEntry(family: WidgetFamily) -> NowPlayingWidgetEntry {
+  NowPlayingWidgetEntry(
+    date: Date(),
+    title: String(localized: "Title"),
+    artist: String(localized: "Artist"),
+    album: String(localized: "Album"),
+    coverPath: "",
+    coverColor: 0xFFFF_FFFF,
+    foregroundColor: 0xFF00_0000,
+    isPlaying: false,
+    isFavorite: false,
+    postion: 0,
+    duration: 0,
+    lyrics: String(localized: "Lyrics"),
+    lyricsIndex: 0,
+    family: family,
+    isPremium: widgetIsPremium()
+  )
+}
 
-  func placeholder(in context: Context) -> NowPlayingEntry {
-    NowPlayingEntry(
-      date: Date(),
-      title: "Title",
-      artist: "Artist",
-      album: "Album",
-      coverPath: "",
-      coverColor: 0xFFFF_FFFF,
-      foregroundColor: 0xFFFF_FFFF,
-      isPlaying: false,
-      isFavorite: false,
-      postion: 0,
-      duration: 0,
-      lyrics: "Lyrics",
-      lyricsIndex: 0,
-      family: context.family
-    )
+struct NowPlayingWidgetTimelineProvider: TimelineProvider {
+
+  func placeholder(in context: Context) -> NowPlayingWidgetEntry {
+    placeholderEntry(family: context.family)
   }
 
-  func makeEntry(in context: Context) -> NowPlayingEntry {
+  func makeEntry(in context: Context) -> NowPlayingWidgetEntry {
     let sharedDefaults = UserDefaults(
       suiteName: "group.com.afalphy.sylvakru"
     )
 
-    return NowPlayingEntry(
+    // Fresh install: nothing synced yet. Missing color keys read back as 0
+    // (fully transparent), so render the placeholder instead of a blank
+    // widget until the first song data arrives.
+    if sharedDefaults?.object(forKey: "title") == nil {
+      return placeholderEntry(family: context.family)
+    }
+
+    return NowPlayingWidgetEntry(
       date: Date(),
       title: sharedDefaults?.string(forKey: "title") ?? "",
       artist: sharedDefaults?.string(forKey: "artist") ?? "",
       album: sharedDefaults?.string(forKey: "album") ?? "",
       coverPath: sharedDefaults?.string(forKey: "coverPath") ?? "",
       coverColor: sharedDefaults?.integer(forKey: "coverColor") ?? 0xFFFF_FFFF,
-      foregroundColor: sharedDefaults?.integer(forKey: "foregroundColor") ?? 0xFFFF_FFFF,
+      foregroundColor: sharedDefaults?.integer(forKey: "foregroundColor") ?? 0xFF00_0000,
       isPlaying: sharedDefaults?.bool(forKey: "is_playing") ?? false,
       isFavorite: sharedDefaults?.bool(forKey: "is_favorite") ?? false,
       postion: 0,
       duration: 0,
       lyrics: sharedDefaults?.string(forKey: "lyrics") ?? "",
       lyricsIndex: sharedDefaults?.integer(forKey: "lyricsIndex") ?? 0,
-      family: context.family
+      family: context.family,
+      isPremium: widgetIsPremium()
     )
   }
 
   func getSnapshot(
     in context: Context,
-    completion: @escaping (NowPlayingEntry) -> Void
+    completion: @escaping (NowPlayingWidgetEntry) -> Void
   ) {
     completion(makeEntry(in: context))
   }
 
   func getTimeline(
     in context: Context,
-    completion: @escaping (Timeline<NowPlayingEntry>) -> Void
+    completion: @escaping (Timeline<NowPlayingWidgetEntry>) -> Void
   ) {
     let entry = makeEntry(in: context)
 
     completion(
       Timeline(
         entries: [entry],
-        policy: .atEnd
+        policy: .never
       )
     )
   }
 }
 
 struct NowPlayingWidgetEntryView: View {
-  var entry: NowPlayingTimelineProvider.Entry
+  var entry: NowPlayingWidgetTimelineProvider.Entry
+
+  var isLocked: Bool {
+    !entry.isPremium && entry.family != .systemSmall
+  }
 
   var lyricsLines: [String] {
     entry.lyrics.components(separatedBy: "\n")
+  }
+
+  // Widget buttons are handled by a native interaction layer above the
+  // rendered content, so PremiumOverlay can't block them by covering them;
+  // while the size is locked, render the controls as plain images instead.
+  @ViewBuilder
+  private func controlButton(
+    function: String,
+    @ViewBuilder label: () -> some View
+  ) -> some View {
+    if isLocked {
+      label()
+    } else {
+      Button(intent: BackgroundIntent(function: function)) {
+        label()
+      }
+      .buttonStyle(.plain)
+    }
   }
 
   func lyricsView(fontSize: CGFloat, offset: CGFloat) -> some View {
@@ -152,6 +194,10 @@ struct NowPlayingWidgetEntryView: View {
         smallView
       case .systemMedium:
         mediumView
+          // The HStack hugs its fixed-height children, so the view ends up
+          // shorter than the widget and the premium overlay only covers the
+          // content; expand it so the overlay reaches the top/bottom edges.
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
       case .systemLarge:
         largeView
       case .systemExtraLarge, .systemExtraLargePortrait:
@@ -164,16 +210,24 @@ struct NowPlayingWidgetEntryView: View {
       Color(argb: entry.coverColor),
       for: .widget
     )
+    .overlay {
+      if isLocked {
+        PremiumOverlay(
+          background: Color(argb: entry.coverColor),
+          foreground: Color(argb: entry.foregroundColor)
+        )
+      }
+    }
   }
 
   var smallView: some View {
     VStack {
       HStack(alignment: .top) {
         Group {
-          if let uiImage = UIImage(contentsOfFile: entry.coverPath) {
+          if let uiImage = WidgetImageCache.shared.image(at: entry.coverPath, maxPixels: 600) {
             Image(uiImage: uiImage)
               .resizable()
-              .aspectRatio(contentMode: .fill)
+              .aspectRatio(contentMode: .fit)
           } else {
             Image(systemName: "music.note")
               .resizable()
@@ -186,12 +240,11 @@ struct NowPlayingWidgetEntryView: View {
 
         Spacer()
 
-        Button(intent: BackgroundIntent(function: "toggleFavorite")) {
+        controlButton(function: "toggleFavorite") {
           Image(systemName: entry.isFavorite ? "star.fill" : "star")
             .font(.system(size: 20))
             .foregroundColor(entry.isFavorite ? .red : Color(argb: entry.foregroundColor))
         }
-        .buttonStyle(.plain)
 
       }
       .padding(.horizontal, 16)
@@ -215,7 +268,7 @@ struct NowPlayingWidgetEntryView: View {
       HStack(alignment: .bottom) {
         Spacer()
 
-        Button(intent: BackgroundIntent(function: "togglePlay")) {
+        controlButton(function: "togglePlay") {
           Image(
             systemName: entry.isPlaying
               ? "pause.circle.fill"
@@ -224,7 +277,6 @@ struct NowPlayingWidgetEntryView: View {
           .font(.system(size: 40))
           .foregroundColor(Color(argb: entry.foregroundColor))
         }
-        .buttonStyle(.plain)
       }
       .padding(.trailing, 8)
       .padding(.bottom, 16)
@@ -234,15 +286,22 @@ struct NowPlayingWidgetEntryView: View {
 
   var mediumView: some View {
     HStack {
-      if let uiImage = UIImage(contentsOfFile: entry.coverPath) {
-        Image(uiImage: uiImage)
-          .resizable()
-          .aspectRatio(contentMode: .fill)
-          .frame(width: 125, height: 125)
-          .clipShape(RoundedRectangle(cornerRadius: 12))
-          .padding(.leading, 16)
-          .padding(.trailing, 4)
+      Group {
+        if let uiImage = WidgetImageCache.shared.image(at: entry.coverPath, maxPixels: 600) {
+          Image(uiImage: uiImage)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+        } else {
+          Image(systemName: "music.note")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .padding(40)
+        }
       }
+      .frame(width: 125, height: 125)
+      .clipShape(RoundedRectangle(cornerRadius: 12))
+      .padding(.leading, 16)
+      .padding(.trailing, 4)
 
       VStack(alignment: .leading) {
         HStack(alignment: .top) {
@@ -266,44 +325,37 @@ struct NowPlayingWidgetEntryView: View {
 
           Spacer()
 
-          Button(intent: BackgroundIntent(function: "toggleFavorite")) {
+          controlButton(function: "toggleFavorite") {
             Image(systemName: entry.isFavorite ? "star.fill" : "star")
               .font(.system(size: 20))
               .foregroundColor(entry.isFavorite ? .red : Color(argb: entry.foregroundColor))
           }
-          .buttonStyle(.plain)
         }
 
         Spacer()
 
         HStack {
-          Button(intent: BackgroundIntent(function: "skipToPrevious")) {
+          controlButton(function: "skipToPrevious") {
             Image(systemName: "backward.fill")
               .font(.system(size: 25))
               .foregroundColor(Color(argb: entry.foregroundColor))
-
           }
-          .buttonStyle(.plain)
 
           Spacer()
 
-          Button(intent: BackgroundIntent(function: "togglePlay")) {
+          controlButton(function: "togglePlay") {
             Image(systemName: entry.isPlaying ? "pause.circle.fill" : "play.circle.fill")
               .font(.system(size: 40))
               .foregroundColor(Color(argb: entry.foregroundColor))
-
           }
-          .buttonStyle(.plain)
 
           Spacer()
 
-          Button(intent: BackgroundIntent(function: "skipToNext")) {
+          controlButton(function: "skipToNext") {
             Image(systemName: "forward.fill")
               .font(.system(size: 25))
               .foregroundColor(Color(argb: entry.foregroundColor))
-
           }
-          .buttonStyle(.plain)
         }
       }
       .frame(height: 120)
@@ -345,17 +397,22 @@ struct NowPlayingWidgetEntryView: View {
   }
 }
 
-struct NowPlaying: Widget {
-  let kind: String = "NowPlaying"
+struct NowPlayingWidget: Widget {
+  let kind: String = "NowPlayingWidget"
 
   var body: some WidgetConfiguration {
     StaticConfiguration(
       kind: kind,
-      provider: NowPlayingTimelineProvider()
+      provider: NowPlayingWidgetTimelineProvider()
     ) { entry in
       NowPlayingWidgetEntryView(entry: entry)
     }
-    .configurationDisplayName("Now Playing")
+    .configurationDisplayName(LocalizedStringResource("Now Playing"))
+    .description(
+      LocalizedStringResource(
+        "Shows the currently playing song with lyrics and playback controls."
+      )
+    )
     .contentMarginsDisabled()
     .supportedFamilies(supportedFamilies)
   }

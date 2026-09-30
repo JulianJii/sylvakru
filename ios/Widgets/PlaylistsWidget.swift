@@ -3,20 +3,6 @@ import SwiftUI
 import UIKit
 import WidgetKit
 
-// MARK: - App Group Storage
-
-extension Color {
-  init(argb: Int) {
-    self.init(
-      .sRGB,
-      red: Double((argb >> 16) & 0xFF) / 255,
-      green: Double((argb >> 8) & 0xFF) / 255,
-      blue: Double(argb & 0xFF) / 255,
-      opacity: Double((argb >> 24) & 0xFF) / 255
-    )
-  }
-}
-
 private let appGroupIdentifier =
   "group.com.afalphy.sylvakru"
 
@@ -24,6 +10,25 @@ private let widgetDefaults =
   UserDefaults(
     suiteName: appGroupIdentifier
   )
+
+// Same color scheme as the NowPlaying widget: the contrast color computed
+// from the current cover, shared via the "foregroundColor" key.
+private var widgetForegroundColor: Color {
+  widgetColor("foregroundColor", default: 0xFF00_0000)
+}
+
+// integer(forKey:) returns 0 for missing keys, which renders as a fully
+// transparent color on a fresh install; treat missing as "no data yet".
+private func widgetColor(
+  _ key: String,
+  default defaultColor: Int
+) -> Color {
+  Color(
+    argb: widgetDefaults?.object(
+      forKey: key
+    ) as? Int ?? defaultColor
+  )
+}
 
 private func widgetFilePath(
   _ name: String
@@ -206,44 +211,11 @@ private func widgetFamily(
 
 // MARK: - Widget Page Family
 
-enum WidgetPageFamily: String, AppEnum {
-
-  case medium
-  case large
-  case extraLarge
-  case extraLargePortrait
-
-  static var typeDisplayRepresentation: TypeDisplayRepresentation {
-    TypeDisplayRepresentation(
-      name: "Widget Size"
-    )
-  }
-
-  static var caseDisplayRepresentations: [WidgetPageFamily: DisplayRepresentation] {
-
-    [
-      .medium:
-        DisplayRepresentation(
-          title: "Medium"
-        ),
-
-      .large:
-        DisplayRepresentation(
-          title: "Large"
-        ),
-
-      .extraLarge:
-        DisplayRepresentation(
-          title: "Extra Large"
-        ),
-
-      .extraLargePortrait:
-        DisplayRepresentation(
-          title: "Extra Large Portrait"
-        ),
-    ]
-  }
-}
+// (No AppEnum here anymore: ChangePageIntent's family parameter is a plain
+// String raw value. AppEnum parameter hydration failed on the first intent
+// execution in a cold extension process and silently fell back to the
+// init() default, so the large widget's first taps wrote the medium page
+// key. Plain strings hydrate through Codable and have no registry to miss.)
 
 // MARK: - Items Per Page
 
@@ -299,7 +271,7 @@ private func totalPages(
 
 // MARK: - Timeline Entry
 
-struct PlaylistsEntry: TimelineEntry {
+struct PlaylistsWidgetEntry: TimelineEntry {
 
   let date: Date
 
@@ -308,22 +280,24 @@ struct PlaylistsEntry: TimelineEntry {
   let playlistNames: [String]
 
   let family: WidgetFamily
+
+  let isPremium: Bool
 }
 
 // MARK: - Timeline Provider
 
-struct Provider: TimelineProvider {
+struct PlaylistsWidgetTimelineProvider: TimelineProvider {
 
   func placeholder(
     in context: Context
-  ) -> PlaylistsEntry {
+  ) -> PlaylistsWidgetEntry {
 
     let count =
       itemsPerPage(
         for: context.family
       )
 
-    return PlaylistsEntry(
+    return PlaylistsWidgetEntry(
       date: Date(),
 
       coverPaths: Array(
@@ -332,11 +306,14 @@ struct Provider: TimelineProvider {
       ),
 
       playlistNames: Array(
-        repeating: "Playlist",
+        repeating: String(localized: "Playlist"),
         count: count
       ),
 
-      family: context.family
+      family: context.family,
+
+      isPremium: widgetIsPremium()
+
     )
   }
 
@@ -344,7 +321,7 @@ struct Provider: TimelineProvider {
     in context: Context,
     completion:
       @escaping (
-        PlaylistsEntry
+        PlaylistsWidgetEntry
       ) -> Void
   ) {
 
@@ -359,11 +336,26 @@ struct Provider: TimelineProvider {
     in context: Context,
     completion:
       @escaping (
-        Timeline<PlaylistsEntry>
+        Timeline<PlaylistsWidgetEntry>
       ) -> Void
   ) {
 
     // MARK: Read playlist data
+
+    // Fresh install: nothing synced yet — render the placeholder instead of
+    // a blank widget until the first playlist data arrives.
+
+    if widgetDefaults?.object(forKey: "playlistCount") == nil {
+
+      completion(
+        Timeline(
+          entries: [placeholder(in: context)],
+          policy: .never
+        )
+      )
+
+      return
+    }
 
     let count =
       widgetDefaults?.integer(
@@ -431,17 +423,18 @@ struct Provider: TimelineProvider {
     }
 
     let entry =
-      PlaylistsEntry(
+      PlaylistsWidgetEntry(
         date: Date(),
         coverPaths: coverPaths,
         playlistNames: playlistNames,
-        family: context.family
+        family: context.family,
+        isPremium: widgetIsPremium()
       )
 
     let timeline =
       Timeline(
         entries: [entry],
-        policy: .atEnd
+        policy: .never
       )
 
     completion(
@@ -457,15 +450,10 @@ struct ChangePageIntent: AppIntent {
   static var title: LocalizedStringResource =
     "Switch Widget Page"
 
-  // IMPORTANT:
-  // The widget family must be an actual AppIntent
-  // parameter so that the value survives when the
-  // intent is executed by WidgetKit.
-
   @Parameter(
     title: "Widget Size"
   )
-  var family: WidgetPageFamily
+  var family: String
 
   @Parameter(
     title: "Target Page"
@@ -475,7 +463,7 @@ struct ChangePageIntent: AppIntent {
   init() {
 
     family =
-      .medium
+      WidgetFamilyKey.medium
 
     targetPage =
       0
@@ -487,12 +475,9 @@ struct ChangePageIntent: AppIntent {
   ) {
 
     self.family =
-      WidgetPageFamily(
-        rawValue:
-          familyKey(
-            for: family
-          )
-      ) ?? .medium
+      familyKey(
+        for: family
+      )
 
     self.targetPage =
       targetPage
@@ -506,7 +491,7 @@ struct ChangePageIntent: AppIntent {
     guard
       let widgetFamily =
         widgetFamily(
-          from: family.rawValue
+          from: family
         )
     else {
 
@@ -521,10 +506,10 @@ struct ChangePageIntent: AppIntent {
       for: widgetFamily
     )
 
-    WidgetCenter.shared
-      .reloadTimelines(
-        ofKind: "Playlists"
-      )
+    // No manual reloadTimelines here: the system already re-renders the
+    // tapped widget when perform() finishes, and reloading the kind would
+    // rebuild EVERY placed Playlists widget (each re-decodes its covers),
+    // which visibly slowed the page flip.
 
     return .result()
   }
@@ -534,7 +519,11 @@ struct ChangePageIntent: AppIntent {
 
 struct PlaylistsWidgetEntryView: View {
 
-  let entry: PlaylistsEntry
+  let entry: PlaylistsWidgetEntry
+
+  var isLocked: Bool {
+    !entry.isPremium && entry.family != .systemMedium
+  }
 
   var body: some View {
 
@@ -585,7 +574,7 @@ struct PlaylistsWidgetEntryView: View {
             .caption
           )
           .foregroundColor(
-            .secondary
+            widgetForegroundColor.opacity(0.5)
           )
         }
 
@@ -598,14 +587,25 @@ struct PlaylistsWidgetEntryView: View {
           .caption
         )
         .foregroundColor(
-          .secondary
+          widgetForegroundColor.opacity(0.5)
         )
       }
     }
+    // contentMarginsDisabled moves the old system margin into this manual
+    // padding, so the premium overlay below can cover the full widget.
+    .padding(20)
     .containerBackground(
-      Color(argb: widgetDefaults?.integer(forKey: "coverColor") ?? 0xFFFF_FFFF),
+      widgetColor("coverColor", default: 0xFFFF_FFFF),
       for: .widget
     )
+    .overlay {
+      if isLocked {
+        PremiumOverlay(
+          background: widgetColor("coverColor", default: 0xFFFF_FFFF),
+          foreground: widgetForegroundColor
+        )
+      }
+    }
   }
 }
 
@@ -613,11 +613,18 @@ struct PlaylistsWidgetEntryView: View {
 
 struct GridView: View {
 
-  let entry: PlaylistsEntry
+  let entry: PlaylistsWidgetEntry
 
   let columns: Int
 
   let itemsPerPage: Int
+
+  // Same rule as PlaylistsWidgetEntryView.isLocked: the widget buttons are
+  // handled by a native interaction layer above the rendered content, so
+  // while locked the page buttons must not be rendered as Buttons at all.
+  var isLocked: Bool {
+    !entry.isPremium && entry.family != .systemMedium
+  }
 
   private let gridSpacing: CGFloat = 12
 
@@ -724,7 +731,7 @@ struct GridView: View {
             .caption
           )
           .foregroundColor(
-            .secondary
+            widgetForegroundColor.opacity(0.5)
           )
 
           Spacer()
@@ -759,13 +766,16 @@ struct GridView: View {
                 currentNames.indices
                   .contains(index)
                   ? currentNames[index]
-                  : "Unknown"
+                  : String(localized: "Unknown")
               )
               .font(
                 .system(
                   size: 10,
                   weight: .medium
                 )
+              )
+              .foregroundColor(
+                widgetForegroundColor
               )
               .lineLimit(1)
             }
@@ -839,26 +849,33 @@ struct GridView: View {
   ) -> some View {
 
     if !path.isEmpty,
-      let image =
-        UIImage(
-          contentsOfFile: path
-        )
+      let image = WidgetImageCache.shared.image(at: path, maxPixels: 600)
     {
 
-      Image(
-        uiImage: image
-      )
-      .resizable()
-      .scaledToFill()
-      .aspectRatio(
-        1,
-        contentMode: .fit
-      )
-      .clipShape(
-        RoundedRectangle(
-          cornerRadius: 6
+      // A square cell with the cover letterboxed inside it. The explicit
+      // ratio in aspectRatio(1, contentMode: .fit) only squares the layout
+      // bounds - a resizable image stretches its bitmap to fill them - so
+      // the square comes from a Color.clear container and scaledToFit
+      // (which preserves the image's own aspect ratio) does the fitting.
+
+      Color.clear
+        .aspectRatio(
+          1,
+          contentMode: .fit
         )
-      )
+        .overlay {
+
+          Image(
+            uiImage: image
+          )
+          .resizable()
+          .scaledToFit()
+        }
+        .clipShape(
+          RoundedRectangle(
+            cornerRadius: 6
+          )
+        )
 
     } else {
 
@@ -866,7 +883,7 @@ struct GridView: View {
         cornerRadius: 6
       )
       .fill(
-        Color.gray.opacity(0.25)
+        widgetForegroundColor.opacity(0.25)
       )
       .aspectRatio(
         1,
@@ -879,7 +896,7 @@ struct GridView: View {
             "music.note.list"
         )
         .foregroundColor(
-          .secondary
+          widgetForegroundColor.opacity(0.5)
         )
         .font(
           .system(size: 14)
@@ -968,35 +985,46 @@ struct GridView: View {
         currentPage >= totalPages - 1
     }
 
-    return Button(
-      intent:
-        ChangePageIntent(
-          family: entry.family,
-          targetPage: targetPage
-        )
-    ) {
-
-      Image(
-        systemName:
-          direction == .previous
-          ? "chevron.left"
-          : "chevron.right"
-      )
-      .font(
-        .system(
-          size: 16,
-          weight: .bold
-        )
-      )
-    }
-    .buttonStyle(
-      .plain
+    let arrow = Image(
+      systemName:
+        direction == .previous
+        ? "arrowtriangle.left.fill"
+        : "arrowtriangle.right.fill"
     )
-    .tint(
+    .font(
+      .system(
+        size: 16,
+        weight: .medium
+      )
+    )
+    .foregroundColor(
       disabled
-        ? .gray.opacity(0.3)
-        : .accentColor
+        ? widgetForegroundColor.opacity(0.3)
+        : widgetForegroundColor
     )
+
+    return Group {
+
+      if isLocked {
+
+        arrow
+
+      } else {
+
+        Button(
+          intent:
+            ChangePageIntent(
+              family: entry.family,
+              targetPage: targetPage
+            )
+        ) {
+          arrow
+        }
+        .buttonStyle(
+          .plain
+        )
+      }
+    }
   }
 
   // MARK: Page Indicators
@@ -1007,7 +1035,7 @@ struct GridView: View {
   ) -> some View {
 
     HStack(
-      spacing: 4
+      spacing: 5
     ) {
 
       ForEach(
@@ -1018,12 +1046,12 @@ struct GridView: View {
         Circle()
           .fill(
             page == currentPage
-              ? Color.accentColor
-              : Color.gray.opacity(0.3)
+              ? widgetForegroundColor
+              : widgetForegroundColor.opacity(0.3)
           )
           .frame(
-            width: 4.5,
-            height: 4.5
+            width: 6,
+            height: 6
           )
       }
     }
@@ -1032,16 +1060,16 @@ struct GridView: View {
 
 // MARK: - Widget Configuration
 
-struct Playlists: Widget {
+struct PlaylistsWidget: Widget {
 
   let kind: String =
-    "Playlists"
+    "PlaylistsWidget"
 
   var body: some WidgetConfiguration {
 
     StaticConfiguration(
       kind: kind,
-      provider: Provider()
+      provider: PlaylistsWidgetTimelineProvider()
     ) { entry in
 
       PlaylistsWidgetEntryView(
@@ -1049,14 +1077,17 @@ struct Playlists: Widget {
       )
     }
     .configurationDisplayName(
-      "My Playlists"
+      LocalizedStringResource("My Playlists")
     )
     .description(
-      "Displays your music playlists with multi-size support and pagination."
+      LocalizedStringResource(
+        "Displays your music playlists with multi-size support and pagination."
+      )
     )
     .supportedFamilies(
       supportedFamilies
     )
+    .contentMarginsDisabled()
   }
 
   private var supportedFamilies: [WidgetFamily] {

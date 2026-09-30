@@ -583,4 +583,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get savedSuccessfully => 'Saved successfully';
+
+  @override
+  String get controlCenterLyrics => 'Control Center Lyrics';
+
+  @override
+  String get connect => 'Connect';
+
+  @override
+  String get notConnected => 'is Not Connected';
 }

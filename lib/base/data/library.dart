@@ -218,11 +218,7 @@ class Library {
   Future<void> clearCache() async {
     Directory cacheDir = Directory(getCachesPath(sourceType));
     if (await cacheDir.exists()) {
-      await for (final file in cacheDir.list()) {
-        if (file is File) {
-          await file.delete();
-        }
-      }
+      await cacheDir.delete(recursive: true);
     }
 
     cacheSizeNotifier.value = 0;
@@ -234,9 +230,7 @@ class Library {
   Future<void> clearPicture() async {
     Directory pictureDir = Directory(getPicturesPath(sourceType));
     if (await pictureDir.exists()) {
-      await for (final file in pictureDir.list()) {
-        await file.delete();
-      }
+      await pictureDir.delete(recursive: true);
     }
     pictureLoadScheduler.clear();
     for (final picture in globalPictureList) {
@@ -256,6 +250,16 @@ class Library {
     });
     _writeQueue = done;
     return done;
+  }
+
+  Future<void> clearLrcCache() async {
+    Directory cacheDir = Directory(getLrcPath(sourceType));
+    if (await cacheDir.exists()) {
+      await cacheDir.delete(recursive: true);
+    }
+    for (final song in library.id2Song.values) {
+      song.parsedLyrics = null;
+    }
   }
 
   /// 登记一次顺序写入。拖动排序会连续触发，这里只排一次队，
@@ -381,15 +385,13 @@ class Library {
     );
   }
 
-  Future<void> updateDuration(MyAudioMetadata song, Duration duration) async {
+  Future<void> updateLyricsTimeOffset(MyAudioMetadata song) async {
     final db = _metadataDB!;
     await (db.update(
       db.metadataItems,
     )..where((t) => t.id.equals(song.id))).write(
-      MetadataItemsCompanion(duration: Value(duration.inMilliseconds)),
+      MetadataItemsCompanion(lyricsTimeOffset: Value(song.lyricsTimeOffset)),
     );
-    song.duration = duration;
-    song.updateNotifier.value++;
   }
 
   Future<void> updateMetadata(MyAudioMetadata song) async {

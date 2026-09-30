@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:charset/charset.dart';
 import 'package:sylvakru/base/app.dart';
@@ -7,8 +6,7 @@ import 'package:sylvakru/base/my_audio_metadata.dart';
 import 'package:sylvakru/base/services/stream_client.dart';
 import 'package:sylvakru/base/services/webdav_client.dart';
 import 'package:sylvakru/base/services/logger.dart';
-import 'package:sylvakru/l10n/generated/app_localizations.dart';
-import 'package:sylvakru/l10n/generated/app_localizations_en.dart';
+import 'package:sylvakru/base/utils/common_utils.dart';
 
 class LyricToken {
   final Duration start;
@@ -86,30 +84,20 @@ Future<void> setParsedLyrics(MyAudioMetadata song) async {
   song.parsedLyrics = result;
 
   List<String> lines = [];
-  late AppLocalizations l10n;
-
-  if (localeNotifier.value != null) {
-    l10n = lookupAppLocalizations(localeNotifier.value!);
-  } else {
-    try {
-      l10n = lookupAppLocalizations(PlatformDispatcher.instance.locale);
-    } catch (_) {
-      l10n = AppLocalizationsEn();
-    }
-  }
 
   if (sourceType == .navidrome || sourceType == .feiniu) {
-    final lyrics = await streamClient?.getLyricsById(song.id) ?? '';
-    if (sourceType == .feiniu &&
-        lyrics.trim().isNotEmpty &&
-        !RegExp(
-          r'^[\[<]\d{2}:\d{2}[.:]\d{2,3}[\]>]',
-          multiLine: true,
-        ).hasMatch(lyrics)) {
-      // 没有时间标签的歌词按原文显示，不生成虚假的同步时间。
-      result.lines.add(LyricLine(Duration.zero, lyrics.trim(), []));
-      return;
+    String lyrics;
+    final lycFile = File(song.lrcPath!);
+    if (await lycFile.exists()) {
+      lyrics = await File(song.lrcPath!).readAsString();
+    } else {
+      lyrics = await streamClient?.getLyricsById(song.id) ?? '';
+      if (lyrics.isNotEmpty) {
+        await lycFile.create(recursive: true);
+        await lycFile.writeAsString(lyrics);
+      }
     }
+
     lines = lyrics.split(RegExp(r'[\n]'));
   } else {
     if (song.lyrics == null || song.lyrics!.isEmpty) {
@@ -118,8 +106,13 @@ Future<void> setParsedLyrics(MyAudioMetadata song) async {
 
       late File lrcFile;
       if (sourceType == .webdav) {
-        lrcFile = File('${tmpDir.path}/sylvakru_lyric');
-        await webdavClient?.download(remotePath: path, localPath: lrcFile.path);
+        lrcFile = File(song.lrcPath!);
+        if (!await lrcFile.exists()) {
+          await webdavClient?.download(
+            remotePath: path,
+            localPath: lrcFile.path,
+          );
+        }
       } else {
         lrcFile = File(path);
       }
@@ -139,6 +132,9 @@ Future<void> setParsedLyrics(MyAudioMetadata song) async {
       lines = song.lyrics!.split(RegExp(r'[\n]'));
     }
   }
+
+  final l10n = getAppLocalizations();
+
   applyLrcParsing(
     result,
     lines,

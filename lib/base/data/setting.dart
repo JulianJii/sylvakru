@@ -98,6 +98,9 @@ class Setting {
     autoRotateNotifier.value = json['autoRotate'] as bool? ?? true;
 
     recursiveScanNotifier.value = json['recursiveScan'] as bool? ?? false;
+
+    controlCenterLyricsNotifier.value =
+        json['controlCenterLyrics'] as bool? ?? false;
   }
 
   void save() {
@@ -130,6 +133,8 @@ class Setting {
         'autoRotate': autoRotateNotifier.value,
 
         'recursiveScan': recursiveScanNotifier.value,
+
+        'controlCenterLyrics': controlCenterLyricsNotifier.value,
       }),
     );
   }

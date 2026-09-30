@@ -200,6 +200,18 @@ class $MetadataItemsTable extends MetadataItems
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _lyricsTimeOffsetMeta = const VerificationMeta(
+    'lyricsTimeOffset',
+  );
+  @override
+  late final GeneratedColumn<int> lyricsTimeOffset = GeneratedColumn<int>(
+    'lyrics_time_offset',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -221,6 +233,7 @@ class $MetadataItemsTable extends MetadataItems
     lyrics,
     playCount,
     lastPlayed,
+    lyricsTimeOffset,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -350,6 +363,15 @@ class $MetadataItemsTable extends MetadataItems
         lastPlayed.isAcceptableOrUnknown(data['last_played']!, _lastPlayedMeta),
       );
     }
+    if (data.containsKey('lyrics_time_offset')) {
+      context.handle(
+        _lyricsTimeOffsetMeta,
+        lyricsTimeOffset.isAcceptableOrUnknown(
+          data['lyrics_time_offset']!,
+          _lyricsTimeOffsetMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -435,6 +457,10 @@ class $MetadataItemsTable extends MetadataItems
         DriftSqlType.int,
         data['${effectivePrefix}last_played'],
       ),
+      lyricsTimeOffset: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lyrics_time_offset'],
+      )!,
     );
   }
 
@@ -468,6 +494,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
   final String? lyrics;
   final int playCount;
   final int? lastPlayed;
+  final int lyricsTimeOffset;
   const MetadataItem({
     required this.id,
     this.coverId,
@@ -488,6 +515,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
     this.lyrics,
     required this.playCount,
     this.lastPlayed,
+    required this.lyricsTimeOffset,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -543,6 +571,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
     if (!nullToAbsent || lastPlayed != null) {
       map['last_played'] = Variable<int>(lastPlayed);
     }
+    map['lyrics_time_offset'] = Variable<int>(lyricsTimeOffset);
     return map;
   }
 
@@ -595,6 +624,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
       lastPlayed: lastPlayed == null && nullToAbsent
           ? const Value.absent()
           : Value(lastPlayed),
+      lyricsTimeOffset: Value(lyricsTimeOffset),
     );
   }
 
@@ -623,6 +653,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
       lyrics: serializer.fromJson<String?>(json['lyrics']),
       playCount: serializer.fromJson<int>(json['playCount']),
       lastPlayed: serializer.fromJson<int?>(json['lastPlayed']),
+      lyricsTimeOffset: serializer.fromJson<int>(json['lyricsTimeOffset']),
     );
   }
   @override
@@ -648,6 +679,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
       'lyrics': serializer.toJson<String?>(lyrics),
       'playCount': serializer.toJson<int>(playCount),
       'lastPlayed': serializer.toJson<int?>(lastPlayed),
+      'lyricsTimeOffset': serializer.toJson<int>(lyricsTimeOffset),
     };
   }
 
@@ -671,6 +703,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
     Value<String?> lyrics = const Value.absent(),
     int? playCount,
     Value<int?> lastPlayed = const Value.absent(),
+    int? lyricsTimeOffset,
   }) => MetadataItem(
     id: id ?? this.id,
     coverId: coverId.present ? coverId.value : this.coverId,
@@ -691,6 +724,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
     lyrics: lyrics.present ? lyrics.value : this.lyrics,
     playCount: playCount ?? this.playCount,
     lastPlayed: lastPlayed.present ? lastPlayed.value : this.lastPlayed,
+    lyricsTimeOffset: lyricsTimeOffset ?? this.lyricsTimeOffset,
   );
   MetadataItem copyWithCompanion(MetadataItemsCompanion data) {
     return MetadataItem(
@@ -721,6 +755,9 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
       lastPlayed: data.lastPlayed.present
           ? data.lastPlayed.value
           : this.lastPlayed,
+      lyricsTimeOffset: data.lyricsTimeOffset.present
+          ? data.lyricsTimeOffset.value
+          : this.lyricsTimeOffset,
     );
   }
 
@@ -745,7 +782,8 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
           ..write('duration: $duration, ')
           ..write('lyrics: $lyrics, ')
           ..write('playCount: $playCount, ')
-          ..write('lastPlayed: $lastPlayed')
+          ..write('lastPlayed: $lastPlayed, ')
+          ..write('lyricsTimeOffset: $lyricsTimeOffset')
           ..write(')'))
         .toString();
   }
@@ -771,6 +809,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
     lyrics,
     playCount,
     lastPlayed,
+    lyricsTimeOffset,
   );
   @override
   bool operator ==(Object other) =>
@@ -794,7 +833,8 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
           other.duration == this.duration &&
           other.lyrics == this.lyrics &&
           other.playCount == this.playCount &&
-          other.lastPlayed == this.lastPlayed);
+          other.lastPlayed == this.lastPlayed &&
+          other.lyricsTimeOffset == this.lyricsTimeOffset);
 }
 
 class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
@@ -817,6 +857,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
   final Value<String?> lyrics;
   final Value<int> playCount;
   final Value<int?> lastPlayed;
+  final Value<int> lyricsTimeOffset;
   final Value<int> rowid;
   const MetadataItemsCompanion({
     this.id = const Value.absent(),
@@ -838,6 +879,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
     this.lyrics = const Value.absent(),
     this.playCount = const Value.absent(),
     this.lastPlayed = const Value.absent(),
+    this.lyricsTimeOffset = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MetadataItemsCompanion.insert({
@@ -860,6 +902,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
     this.lyrics = const Value.absent(),
     this.playCount = const Value.absent(),
     this.lastPlayed = const Value.absent(),
+    this.lyricsTimeOffset = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<MetadataItem> custom({
@@ -882,6 +925,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
     Expression<String>? lyrics,
     Expression<int>? playCount,
     Expression<int>? lastPlayed,
+    Expression<int>? lyricsTimeOffset,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -904,6 +948,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
       if (lyrics != null) 'lyrics': lyrics,
       if (playCount != null) 'play_count': playCount,
       if (lastPlayed != null) 'last_played': lastPlayed,
+      if (lyricsTimeOffset != null) 'lyrics_time_offset': lyricsTimeOffset,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -928,6 +973,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
     Value<String?>? lyrics,
     Value<int>? playCount,
     Value<int?>? lastPlayed,
+    Value<int>? lyricsTimeOffset,
     Value<int>? rowid,
   }) {
     return MetadataItemsCompanion(
@@ -950,6 +996,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
       lyrics: lyrics ?? this.lyrics,
       playCount: playCount ?? this.playCount,
       lastPlayed: lastPlayed ?? this.lastPlayed,
+      lyricsTimeOffset: lyricsTimeOffset ?? this.lyricsTimeOffset,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1014,6 +1061,9 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
     if (lastPlayed.present) {
       map['last_played'] = Variable<int>(lastPlayed.value);
     }
+    if (lyricsTimeOffset.present) {
+      map['lyrics_time_offset'] = Variable<int>(lyricsTimeOffset.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1042,6 +1092,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
           ..write('lyrics: $lyrics, ')
           ..write('playCount: $playCount, ')
           ..write('lastPlayed: $lastPlayed, ')
+          ..write('lyricsTimeOffset: $lyricsTimeOffset, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1080,6 +1131,7 @@ typedef $$MetadataItemsTableCreateCompanionBuilder =
       Value<String?> lyrics,
       Value<int> playCount,
       Value<int?> lastPlayed,
+      Value<int> lyricsTimeOffset,
       Value<int> rowid,
     });
 typedef $$MetadataItemsTableUpdateCompanionBuilder =
@@ -1103,6 +1155,7 @@ typedef $$MetadataItemsTableUpdateCompanionBuilder =
       Value<String?> lyrics,
       Value<int> playCount,
       Value<int?> lastPlayed,
+      Value<int> lyricsTimeOffset,
       Value<int> rowid,
     });
 
@@ -1207,6 +1260,11 @@ class $$MetadataItemsTableFilterComposer
 
   ColumnFilters<int> get lastPlayed => $composableBuilder(
     column: $table.lastPlayed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lyricsTimeOffset => $composableBuilder(
+    column: $table.lyricsTimeOffset,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1314,6 +1372,11 @@ class $$MetadataItemsTableOrderingComposer
     column: $table.lastPlayed,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get lyricsTimeOffset => $composableBuilder(
+    column: $table.lyricsTimeOffset,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MetadataItemsTableAnnotationComposer
@@ -1389,6 +1452,11 @@ class $$MetadataItemsTableAnnotationComposer
     column: $table.lastPlayed,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get lyricsTimeOffset => $composableBuilder(
+    column: $table.lyricsTimeOffset,
+    builder: (column) => column,
+  );
 }
 
 class $$MetadataItemsTableTableManager
@@ -1441,6 +1509,7 @@ class $$MetadataItemsTableTableManager
                 Value<String?> lyrics = const Value.absent(),
                 Value<int> playCount = const Value.absent(),
                 Value<int?> lastPlayed = const Value.absent(),
+                Value<int> lyricsTimeOffset = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MetadataItemsCompanion(
                 id: id,
@@ -1462,6 +1531,7 @@ class $$MetadataItemsTableTableManager
                 lyrics: lyrics,
                 playCount: playCount,
                 lastPlayed: lastPlayed,
+                lyricsTimeOffset: lyricsTimeOffset,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1485,6 +1555,7 @@ class $$MetadataItemsTableTableManager
                 Value<String?> lyrics = const Value.absent(),
                 Value<int> playCount = const Value.absent(),
                 Value<int?> lastPlayed = const Value.absent(),
+                Value<int> lyricsTimeOffset = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MetadataItemsCompanion.insert(
                 id: id,
@@ -1506,6 +1577,7 @@ class $$MetadataItemsTableTableManager
                 lyrics: lyrics,
                 playCount: playCount,
                 lastPlayed: lastPlayed,
+                lyricsTimeOffset: lyricsTimeOffset,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

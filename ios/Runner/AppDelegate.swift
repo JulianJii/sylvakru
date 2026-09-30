@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import WidgetKit
 import home_widget
 
 @main
@@ -137,6 +138,43 @@ import home_widget
           self.currentMenuRect = CGRect(x: x, y: y, width: width, height: height)
 
           result(true)
+        }
+
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    })
+
+    // Reports which widgets of a given kind are actually placed on the home
+    // screen (one entry per instance, so multiple sizes are all listed).
+    let widgetConfigChannel = FlutterMethodChannel(
+      name: "com.afalphy.widget_config",
+      binaryMessenger: registrar!.messenger())
+
+    widgetConfigChannel.setMethodCallHandler({
+      (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
+      switch call.method {
+      case "getInstalledWidgetFamilies":
+        guard let kind = call.arguments as? String else {
+          result(FlutterError(code: "ARG_ERROR", message: "Widget kind is required", details: nil))
+          return
+        }
+
+        WidgetCenter.shared.getCurrentConfigurations { configuration in
+          DispatchQueue.main.async {
+            switch configuration {
+            case .success(let widgetInfos):
+              let families =
+                widgetInfos
+                .filter { $0.kind == kind }
+                .map { $0.family.rawValue }
+              result(families)
+            case .failure(let error):
+              result(
+                FlutterError(
+                  code: "UNAVAILABLE", message: error.localizedDescription, details: nil))
+            }
+          }
         }
 
       default:
