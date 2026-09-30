@@ -81,7 +81,6 @@ class PlaylistManager {
     for (final playlist in playlists) {
       await playlist.load();
     }
-    await HomeWidgetService.updateNowPlayingWidget();
 
     if (Platform.isIOS) {
       HomeWidgetService.updatePlaylistsWidget();

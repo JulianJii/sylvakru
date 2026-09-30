@@ -159,18 +159,15 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
   List<OnlineTrack> _playlistTracks = const [];
   bool _loadingPlaylistTracks = false;
 
-  /// 歌曲搜索结果分页。每个音源各翻各的页，哪个返回空就把它记为翻完，
-  /// 全部翻完才到底 —— 酷我一页 30 条、咪咕 20 条，谁先见底谁先停。
+  /// 歌曲搜索结果分页。单选音源：这一页有没有下一页就看本页是否返回了结果。
   int _songPage = 1;
   bool _songHasMore = false;
   bool _songLoadingMore = false;
-  final Set<String> _songExhausted = <String>{};
 
   /// 歌单搜索结果分页。
   int _playlistPage = 1;
   bool _playlistHasMore = false;
   bool _playlistLoadingMore = false;
-  final Set<String> _playlistExhausted = <String>{};
 
   /// 歌单曲目（详情页）分页。
   int _playlistTrackPage = 1;
@@ -181,9 +178,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
   int _playlistTrackGeneration = 0;
 
   bool _searching = false;
-  String? _message;
 
-  String _sourceFilter = 'all';
+  /// 当前选中的音源（单选）。默认酷我，用户切换后持久化。
+  String _sourceFilter = 'kw';
 
   /// source -> 可用音质，来自自定义源脚本的 `lx.send('inited')`。
   /// 拿不到就退回歌曲自带的。
@@ -204,6 +201,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
     await onlineSettings.load();
     await onlineSearchHistory.load();
     await onlineDownloader.init();
+    // 恢复上次选中的音源；设置里存了已下线的源就退回酷我。
+    final source = onlineSettings.source.value;
+    _sourceFilter = onlineSearchers.containsKey(source) ? source : 'kw';
     if (!mounted) return;
     setState(() {});
     await _loadScriptSources();
@@ -212,48 +212,62 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
   @override
   void dispose() {
     _keywordController.dispose();
+    // 页面走了就别把通知留在上一层界面上。
+    dismissOnlineNotice();
     super.dispose();
   }
 
-  /// 跑一遍脚本（或复用已加载的），把脚本声明的音源与音质拿来过滤音质选择。
+  /// 下拉里显示的源：脚本声明了哪些源就只显示哪些（脚本不支持的搜到也
+  /// 播不了）；没导入脚本或还没加载完时显示全部搜索源。
+  List<String> get _availableSources {
+    if (_apiSources.isEmpty) return onlineSearchers.keys.toList();
+    return [
+      for (final source in onlineSearchers.keys)
+        if (_apiSources.containsKey(source)) source,
+    ];
+  }
+
+  /// 跑一遍脚本（或复用已加载的），把脚本声明的音源与音质拿来过滤
+  /// 音质选择与音源下拉。
   Future<void> _loadScriptSources() async {
     if (!onlineSettings.hasScript) return;
     try {
       final sources = await onlineApiClient.fetchSources();
-      if (mounted) setState(() => _apiSources = sources);
+      if (!mounted) return;
+      setState(() {
+        _apiSources = sources;
+        // 上次选的源这次脚本不支持了，退到第一个可用源。
+        if (sources.isNotEmpty && !sources.containsKey(_sourceFilter)) {
+          final fallback = _availableSources.first;
+          _sourceFilter = fallback;
+          onlineSettings.source.value = fallback;
+          onlineSettings.save();
+        }
+      });
     } catch (e) {
       logger.output('[online] 自定义源脚本加载失败: $e');
     }
   }
 
+  /// 提示统一从这里走：顶部往下滑出一条，几秒后自动收回。
   void _showMessage(String message) {
     if (!mounted) return;
-    setState(() => _message = message);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 4)),
-    );
+    showOnlineNotice(context, message);
   }
 
-  /// 当前音源筛选下的参与搜索的音源列表。
-  List<String> get _activeSources =>
-      _sourceFilter == 'all' ? onlineSearchers.keys.toList() : [_sourceFilter];
-
-  /// [exhausted] 里没记过的音源，也就是还能往下翻的那几个。
-  List<String> _remainingSources(Set<String> exhausted) =>
-      _activeSources.where((source) => !exhausted.contains(source)).toList();
+  /// 当前选中的搜索器。
+  OnlineSearcher get _activeSearcher => onlineSearchers[_sourceFilter]!;
 
   void _resetSongPaging() {
     _songPage = 1;
     _songHasMore = false;
     _songLoadingMore = false;
-    _songExhausted.clear();
   }
 
   void _resetPlaylistPaging() {
     _playlistPage = 1;
     _playlistHasMore = false;
     _playlistLoadingMore = false;
-    _playlistExhausted.clear();
   }
 
   void _resetPlaylistTrackPaging() {
@@ -269,10 +283,10 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
     // 关键词保存到本地
     onlineSearchHistory.add(keyword);
 
+    final searcher = _activeSearcher;
     final generation = ++_searchGeneration;
     setState(() {
       _searching = true;
-      _message = null;
       if (_searchType == OnlineSearchType.song) {
         _results = const [];
         _resetSongPaging();
@@ -284,143 +298,95 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       }
     });
 
-    final page = await _fetchSearchPage(
-      sources: _activeSources,
-      keyword: keyword,
-      page: 1,
-      generation: generation,
-    );
-    if (page == null) return;
-    setState(() {
-      _searching = false;
+    try {
       if (_searchType == OnlineSearchType.song) {
-        _results = page.allTracks;
-        _songHasMore = _songHasMoreAfter(page);
-        _message = _failureMessage(page.failures, _results.isEmpty);
+        final tracks = await searcher.search(keyword, page: 1);
+        if (!mounted || generation != _searchGeneration) return;
+        setState(() {
+          _searching = false;
+          _results = tracks;
+          _songPage = 1;
+          _songHasMore = tracks.isNotEmpty;
+        });
       } else {
-        _playlistResults = page.allPlaylists;
-        _playlistHasMore = _playlistHasMoreAfter(page);
-        _message = _failureMessage(page.failures, _playlistResults.isEmpty);
+        final playlists = await searcher.searchPlaylists(keyword, page: 1);
+        if (!mounted || generation != _searchGeneration) return;
+        setState(() {
+          _searching = false;
+          _playlistResults = playlists;
+          _playlistPage = 1;
+          _playlistHasMore = playlists.isNotEmpty;
+        });
       }
-    });
+    } catch (e) {
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() => _searching = false);
+      _showMessage(
+        '${searcher.label}：${e is OnlineApiException ? e.message : e}',
+      );
+    }
   }
 
   Future<void> _loadMoreSongs() async {
     if (_songLoadingMore || !_songHasMore) return;
     final keyword = _keywordController.text.trim();
     if (keyword.isEmpty) return;
-    final sources = _remainingSources(_songExhausted);
-    if (sources.isEmpty) return;
+    final searcher = _activeSearcher;
+    final generation = _searchGeneration;
 
     setState(() => _songLoadingMore = true);
-    final page = await _fetchSearchPage(
-      sources: sources,
-      keyword: keyword,
-      page: _songPage + 1,
-      generation: _searchGeneration,
-    );
-    // 返回 null 说明期间又发起了新搜索，那次 setState 已经重置了加载标志。
-    if (page == null) return;
-    setState(() {
-      _songLoadingMore = false;
-      _songPage = _songPage + 1;
-      _results = [..._results, ...page.allTracks];
-      _songHasMore = _songHasMoreAfter(page);
-    });
+    try {
+      final tracks = await searcher.search(keyword, page: _songPage + 1);
+      // 期间又发起了新搜索的话这次结果作废（新搜索已重置加载标志）。
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() {
+        _songLoadingMore = false;
+        _songPage += 1;
+        _results = [..._results, ...tracks];
+        _songHasMore = tracks.isNotEmpty;
+      });
+    } catch (e) {
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() {
+        _songLoadingMore = false;
+        _songHasMore = false;
+      });
+      _showMessage(
+        '${searcher.label}：${e is OnlineApiException ? e.message : e}',
+      );
+    }
   }
 
   Future<void> _loadMorePlaylists() async {
     if (_playlistLoadingMore || !_playlistHasMore) return;
     final keyword = _keywordController.text.trim();
     if (keyword.isEmpty) return;
-    final sources = _remainingSources(_playlistExhausted);
-    if (sources.isEmpty) return;
+    final searcher = _activeSearcher;
+    final generation = _searchGeneration;
 
     setState(() => _playlistLoadingMore = true);
-    final page = await _fetchSearchPage(
-      sources: sources,
-      keyword: keyword,
-      page: _playlistPage + 1,
-      generation: _searchGeneration,
-    );
-    if (page == null) return;
-    setState(() {
-      _playlistLoadingMore = false;
-      _playlistPage = _playlistPage + 1;
-      _playlistResults = [..._playlistResults, ...page.allPlaylists];
-      _playlistHasMore = _playlistHasMoreAfter(page);
-    });
-  }
-
-  /// 向 [sources] 里的每个音源请求第 [page] 页搜索结果，按音源分桶返回。
-  ///
-  /// 返回 null 表示这次请求已经过期（期间又发起了新搜索），调用方直接丢弃。
-  Future<_SearchPage?> _fetchSearchPage({
-    required List<String> sources,
-    required String keyword,
-    required int page,
-    required int generation,
-  }) async {
-    final songs = _searchType == OnlineSearchType.song;
-    final tracks = <String, List<OnlineTrack>>{};
-    final playlists = <String, List<OnlinePlaylist>>{};
-    final failures = <String>[];
-    await Future.wait(
-      sources.map((source) async {
-        final searcher = onlineSearchers[source]!;
-        try {
-          if (songs) {
-            tracks[source] = await searcher.search(keyword, page: page);
-          } else {
-            playlists[source] = await searcher.searchPlaylists(
-              keyword,
-              page: page,
-            );
-          }
-        } catch (e) {
-          // 失败的音源也记一页空结果：分页要能收敛到底，否则页脚会一直转圈。
-          if (songs) {
-            tracks[source] = const [];
-          } else {
-            playlists[source] = const [];
-          }
-          // 一个音源挂掉不该拖垮另一个，收集起来一起提示。
-          failures.add(
-            '${searcher.label}：${e is OnlineApiException ? e.message : e}',
-          );
-        }
-      }),
-    );
-
-    if (!mounted || generation != _searchGeneration) return null;
-    return _SearchPage(
-      tracks: tracks,
-      playlists: playlists,
-      failures: failures,
-    );
-  }
-
-  /// 把返回空结果的音源记进 [exhausted]，剩下的还有没有得翻。
-  bool _songHasMoreAfter(_SearchPage page) {
-    _songExhausted.addAll(_exhaustedOf(page.tracks));
-    return _remainingSources(_songExhausted).isNotEmpty;
-  }
-
-  bool _playlistHasMoreAfter(_SearchPage page) {
-    _playlistExhausted.addAll(_exhaustedOf(page.playlists));
-    return _remainingSources(_playlistExhausted).isNotEmpty;
-  }
-
-  Iterable<String> _exhaustedOf<T>(Map<String, List<T>> perSource) => perSource
-      .entries
-      .where((entry) => entry.value.isEmpty)
-      .map((entry) => entry.key);
-
-  /// 部分音源失败的提示：一个都没搜出来就把错误原样列出，否则只挂一句提醒。
-  String? _failureMessage(List<String> failures, bool emptyResults) {
-    if (failures.isEmpty) return null;
-    if (emptyResults) return failures.join('\n');
-    return '部分音源不可用 —— ${failures.join('；')}';
+    try {
+      final playlists = await searcher.searchPlaylists(
+        keyword,
+        page: _playlistPage + 1,
+      );
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() {
+        _playlistLoadingMore = false;
+        _playlistPage += 1;
+        _playlistResults = [..._playlistResults, ...playlists];
+        _playlistHasMore = playlists.isNotEmpty;
+      });
+    } catch (e) {
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() {
+        _playlistLoadingMore = false;
+        _playlistHasMore = false;
+      });
+      _showMessage(
+        '${searcher.label}：${e is OnlineApiException ? e.message : e}',
+      );
+    }
   }
 
   Future<void> _openPlaylist(OnlinePlaylist playlist) async {
@@ -435,7 +401,6 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       _selectedPlaylist = playlist;
       _playlistTracks = const [];
       _loadingPlaylistTracks = true;
-      _message = null;
       _resetPlaylistTrackPaging();
     });
 
@@ -761,10 +726,13 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                       const SizedBox(width: 12),
                       _SourceFilterSelect(
                         value: _sourceFilter,
+                        allowed: _availableSources,
                         onChanged: (value) {
                           if (value == _sourceFilter) return;
                           setState(() => _sourceFilter = value);
-                          // 音源筛选点了就生效：立刻用新音源重搜一次。
+                          onlineSettings.source.value = value;
+                          onlineSettings.save();
+                          // 音源点了就生效：立刻用新音源重搜一次。
                           _search();
                         },
                       ),
@@ -782,13 +750,6 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                 ),
             ],
           ),
-          if (_message != null) ...[
-            const SizedBox(height: 10),
-            _MessageBar(
-              message: _message!,
-              onDismiss: () => setState(() => _message = null),
-            ),
-          ],
         ],
       ),
     );
@@ -1230,6 +1191,10 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       ]),
       builder: (context, _) {
         final song = currentSongNotifier.value;
+        // 横屏空间充裕，把播放控制按钮放大，方便点击。
+        final isLandscape = _isLandscape(context);
+        final controlIconSize = isLandscape ? 34.0 : 24.0;
+        final controlPadding = EdgeInsets.all(isLandscape ? 14 : 8);
         return Container(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
           color: OnlinePalette.surface,
@@ -1314,6 +1279,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
               IconButton(
                 tooltip: '上一首',
                 onPressed: _canPrevious ? () => _playRelative(-1) : null,
+                iconSize: controlIconSize,
+                style: IconButton.styleFrom(padding: controlPadding),
                 icon: const Icon(Icons.skip_previous_rounded),
               ),
               ValueListenableBuilder<bool>(
@@ -1324,7 +1291,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
                     style: IconButton.styleFrom(
                       backgroundColor: OnlinePalette.primary,
                       foregroundColor: OnlinePalette.onPrimary,
+                      padding: controlPadding,
                     ),
+                    iconSize: controlIconSize,
                     onPressed: song == null
                         ? null
                         : () => isPlaying
@@ -1341,6 +1310,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
               IconButton(
                 tooltip: '下一首',
                 onPressed: _canNext ? () => _playRelative(1) : null,
+                iconSize: controlIconSize,
+                style: IconButton.styleFrom(padding: controlPadding),
                 icon: const Icon(Icons.skip_next_rounded),
               ),
               const SizedBox(width: 8),
@@ -1358,6 +1329,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       context: context,
       builder: (context) => const _SettingsDialog(),
     );
+    // 里面可能换了生效的脚本（或删了脚本），音源列表得跟着重算。
+    if (mounted) await _loadScriptSources();
   }
 }
 
@@ -1365,22 +1338,27 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
 // 小组件
 // ---------------------------------------------------------------------------
 
-/// 音源筛选的下拉选择器。样式与 [_QualityMenu] 保持一致，选中即回调。
+/// 音源单选下拉。样式与 [_QualityMenu] 保持一致，选中即回调。
+/// [allowed] 之外的源不显示（脚本没声明的源搜到也播不了）。
 class _SourceFilterSelect extends StatelessWidget {
-  const _SourceFilterSelect({required this.value, required this.onChanged});
+  const _SourceFilterSelect({
+    required this.value,
+    required this.allowed,
+    required this.onChanged,
+  });
 
   final String value;
+  final List<String> allowed;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final entries = <String, String>{
-      'all': '音源',
-      for (final searcher in onlineSearchers.values)
-        searcher.source: searcher.label,
+      for (final source in allowed)
+        source: onlineSearchers[source]?.label ?? source,
     };
     return PopupMenuButton<String>(
-      tooltip: '音源筛选',
+      tooltip: '音源',
       initialValue: value,
       onSelected: onChanged,
       color: OnlinePalette.surfaceAlt,
@@ -1500,47 +1478,170 @@ class _QualityMenu extends StatelessWidget {
   }
 }
 
-class _MessageBar extends StatelessWidget {
-  const _MessageBar({required this.message, required this.onDismiss});
+// ---------------------------------------------------------------------------
+// 顶部下滑通知
+// ---------------------------------------------------------------------------
+
+/// 当前挂在屏上的通知。同一时刻只留一条：新的一条直接把上一条顶掉。
+OverlayEntry? _noticeEntry;
+
+/// 屏幕顶部往下滑出一条通知，[duration] 后自动收回（点一下也可以立刻收起）。
+///
+/// 不用 SnackBar：它是从底部弹的，而且页面里再配一条内嵌提示就会一次冒出来
+/// 两条，所以在线音乐页的提示统一走这一条通路。
+void showOnlineNotice(
+  BuildContext context,
+  String message, {
+  Duration duration = const Duration(seconds: 4),
+}) {
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlay == null) return;
+  dismissOnlineNotice();
+
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (_) => _NoticeBanner(
+      message: message,
+      duration: duration,
+      onDone: () {
+        if (entry.mounted) entry.remove();
+        if (identical(_noticeEntry, entry)) _noticeEntry = null;
+      },
+    ),
+  );
+  _noticeEntry = entry;
+  overlay.insert(entry);
+}
+
+/// 收起当前通知；没有就是空操作。
+void dismissOnlineNotice() {
+  final entry = _noticeEntry;
+  _noticeEntry = null;
+  if (entry != null && entry.mounted) entry.remove();
+}
+
+class _NoticeBanner extends StatefulWidget {
+  const _NoticeBanner({
+    required this.message,
+    required this.duration,
+    required this.onDone,
+  });
 
   final String message;
-  final VoidCallback onDismiss;
+  final Duration duration;
+
+  /// 收起动画播完（或者被点掉）后回调，由调用方把 OverlayEntry 摘掉。
+  final VoidCallback onDone;
+
+  @override
+  State<_NoticeBanner> createState() => _NoticeBannerState();
+}
+
+class _NoticeBannerState extends State<_NoticeBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+  );
+  late final Animation<Offset> _slide =
+      Tween(begin: const Offset(0, -1), end: Offset.zero).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+      );
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.forward();
+    _timer = Timer(widget.duration, _dismiss);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// 先滑回去再摘 entry，直接摘会"啪"地消失。
+  Future<void> _dismiss() async {
+    _timer?.cancel();
+    if (mounted) await _controller.reverse();
+    widget.onDone();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
-      decoration: BoxDecoration(
-        color: OnlinePalette.warn.withAlpha(28),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: OnlinePalette.warn.withAlpha(70)),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            size: 16,
-            color: OnlinePalette.warn,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(fontSize: 12, color: OnlinePalette.warn),
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: SlideTransition(
+          position: _slide,
+          child: FadeTransition(
+            opacity: _controller,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: Material(
+                    color: OnlinePalette.surfaceAlt,
+                    elevation: 8,
+                    shadowColor: Colors.black45,
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: OnlinePalette.danger.withAlpha(90)),
+                    ),
+                    child: InkWell(
+                      onTap: _dismiss,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              size: 18,
+                              color: OnlinePalette.danger,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                widget.message,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: OnlinePalette.text,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: '关闭',
+                              iconSize: 16,
+                              visualDensity: VisualDensity.compact,
+                              color: OnlinePalette.textFaint,
+                              onPressed: _dismiss,
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-          IconButton(
-            tooltip: '关闭',
-            iconSize: 16,
-            onPressed: onDismiss,
-            icon: const Icon(Icons.close_rounded),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
+
+/// 所有内置音源名（"酷我 / 酷狗 / …"），空状态提示用。
+String get _sourceLabels =>
+    onlineSearchers.values.map((searcher) => searcher.label).join(' / ');
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({
@@ -1600,8 +1701,8 @@ class _EmptyState extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     isPlaylist
-                        ? '搜索结果来自酷我 / 咪咕歌单，点击歌单可查看曲目并播放'
-                        : '搜索结果来自酷我 / 咪咕，播放直链由聚合接口解析',
+                        ? '搜索结果来自$_sourceLabels的歌单，点击歌单可查看曲目并播放'
+                        : '搜索结果来自$_sourceLabels，播放直链由自定义源脚本解析',
                     style: TextStyle(
                       fontSize: 12,
                       color: OnlinePalette.textFaint,
@@ -1674,29 +1775,6 @@ class _ListFooter extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 一次分页请求的结果，按音源分桶带回。
-///
-/// 分桶是为了算"谁还能往下翻"：混在一起就分不出某一页是谁返回空了。
-class _SearchPage {
-  _SearchPage({
-    required this.tracks,
-    required this.playlists,
-    required this.failures,
-  });
-
-  final Map<String, List<OnlineTrack>> tracks;
-  final Map<String, List<OnlinePlaylist>> playlists;
-  final List<String> failures;
-
-  List<OnlineTrack> get allTracks => [
-    for (final list in tracks.values) ...list,
-  ];
-
-  List<OnlinePlaylist> get allPlaylists => [
-    for (final list in playlists.values) ...list,
-  ];
 }
 
 class _HistoryChip extends StatelessWidget {
@@ -2360,7 +2438,12 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     try {
       final script = await onlineApiClient.fetchScript(url);
       await onlineSettings.addScript(
-        LxScriptEntry(name: _scriptNameFromUrl(url), url: url, script: script),
+        // 名字取脚本头注释里的 `@name`，链接末段只做兜底。
+        LxScriptEntry.fromScript(
+          script,
+          name: _scriptNameFromUrl(url),
+          url: url,
+        ),
       );
       await onlineApiClient.reload();
       if (!mounted) return;
@@ -2370,23 +2453,33 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       });
     } catch (e) {
       logger.output('[online] 导入脚本失败: $e');
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text('导入失败：$e')));
+      if (mounted) showOnlineNotice(context, '导入失败：$e');
     } finally {
       if (mounted) setState(() => _importing = false);
     }
   }
 
-  /// 链接末段当脚本名（`xxx/lx-source.js` -> `lx-source.js`），没有就退回域名。
+  /// 脚本没写 `@name` 时的兜底名：链接末段（`xxx/lx-source.js` ->
+  /// `lx-source.js`），没有末段就退回域名。
   String _scriptNameFromUrl(String url) {
     final uri = Uri.parse(url);
     return uri.pathSegments.isEmpty ? uri.host : uri.pathSegments.last;
   }
 
-  /// 按列表位置移除；列表顺序就是取链优先级。
+  /// 按列表位置移除。
   Future<void> _removeScript(int index) async {
     await onlineSettings.removeScript(index);
+    await onlineApiClient.reload();
+    if (!mounted) return;
+    setState(() {
+      _sourcesFuture = _refreshSources();
+    });
+  }
+
+  /// 换一个生效的脚本：旧的引擎卸掉，重新加载新脚本并刷新那一行说明。
+  Future<void> _selectScript(int index) async {
+    if (index == onlineSettings.activeScriptIndex) return;
+    await onlineSettings.setActiveScript(index);
     await onlineApiClient.reload();
     if (!mounted) return;
     setState(() {
@@ -2423,7 +2516,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               const SizedBox(height: 4),
               Text(
                 '播放直链由洛雪音乐的「自定义源」脚本解析，可导入多个 .js 脚本链接；'
-                '按顺序依次取链，一个失败自动用下一个。',
+                '音源单选，只有勾选的那个脚本生效。',
                 style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
               ),
               const SizedBox(height: 14),
@@ -2502,9 +2595,14 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   /// 列出已导入的脚本与它们声明的音源。脚本声明在加载后才拿得到，
   /// 所以顺手触发一次加载。
   Widget _buildScriptArea() {
-    return ValueListenableBuilder<List<LxScriptEntry>>(
-      valueListenable: onlineSettings.scripts,
-      builder: (context, scripts, _) {
+    return ListenableBuilder(
+      // 选中状态也是这个列表的一部分，两个 notifier 都要听。
+      listenable: Listenable.merge([
+        onlineSettings.scripts,
+        onlineSettings.activeScript,
+      ]),
+      builder: (context, _) {
+        final scripts = onlineSettings.scripts.value;
         if (scripts.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
@@ -2521,12 +2619,20 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: scripts.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 6),
-                itemBuilder: (context, index) =>
-                    _buildScriptTile(scripts[index], index),
+              // 单选组：一屏里的单选框归一组，点哪个哪个生效。
+              child: RadioGroup<int>(
+                groupValue: onlineSettings.activeScriptIndex,
+                onChanged: (index) {
+                  if (index != null) _selectScript(index);
+                },
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: scripts.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 6),
+                  itemBuilder: (context, index) =>
+                      _buildScriptTile(scripts[index], index),
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -2544,13 +2650,21 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   }
 
   Widget _buildScriptTile(LxScriptEntry entry, int index) {
-    return Container(
-      decoration: BoxDecoration(
-        color: OnlinePalette.surfaceAlt,
+    final active = index == onlineSettings.activeScriptIndex;
+    // 用 Material 而不是带底色的 Container：ListTile 的水波纹画在最近的
+    // Material 上，夹一层 DecoratedBox 会被它盖住（框架会直接报断言）。
+    return Material(
+      color: OnlinePalette.surfaceAlt,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: active ? OnlinePalette.primary : Colors.transparent,
+        ),
       ),
       child: ListTile(
         dense: true,
+        onTap: active ? null : () => _selectScript(index),
         leading: const Icon(Icons.javascript_rounded, size: 18),
         title: Text(
           '${index + 1}. ${entry.name}',
@@ -2564,10 +2678,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 11, color: OnlinePalette.textFaint),
               ),
-        trailing: IconButton(
-          tooltip: '移除',
-          icon: const Icon(Icons.close_rounded, size: 18),
-          onPressed: () => _removeScript(index),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Radio<int>(value: index),
+            IconButton(
+              tooltip: '移除',
+              icon: const Icon(Icons.close_rounded, size: 18),
+              onPressed: () => _removeScript(index),
+            ),
+          ],
         ),
       ),
     );
@@ -2581,7 +2701,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     final failures = lxJsSources.failures;
     if (sources.isEmpty && failures.isEmpty) return '脚本没有声明可用的音源';
     return [
-      if (sources.isNotEmpty) '已声明音源：${sources.keys.join('、')}（按顺序依次取链）',
+      if (sources.isNotEmpty) '已声明音源：${sources.keys.join('、')}',
       ...failures,
     ].join('\n');
   }

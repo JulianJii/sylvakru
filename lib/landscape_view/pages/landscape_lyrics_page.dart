@@ -186,7 +186,7 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
           final infoHeight = pageHight * 0.02 + 64; // 标题 + 歌手/专辑两行 + 上下间距
           final controlsHeight =
               20 + // 进度条
-              (35 + 16) + // 播放/暂停按钮(含默认内边距)
+              (48 + 16) + // 播放/暂停按钮(含默认内边距)
               (isMobile ? 0 : 10) + // 音量条(桌面端)
               pageHight * 0.02; // 控件底部间距
           final reserved =
@@ -449,6 +449,10 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
     double pageHight,
     MyAudioMetadata? currentSong,
   ) {
+    // 封面窄的时候按钮行会被挤到放不下，按钮自己撑开到需要的最小宽度
+    // （进度条仍与封面同宽）。
+    final controlsWidth = max(width, 300.0);
+
     return ValueListenableBuilder(
       valueListenable: lyricsPageForegroundColor.valueNotifier,
       builder: (context, value, child) {
@@ -460,24 +464,24 @@ class _LandscapeLyricsPageState extends State<LandscapeLyricsPage> {
             ),
 
             SizedBox(
-              width: width,
+              width: controlsWidth,
               child: Row(
                 children: [
-                  playModeButton(25, iconColor: value),
+                  playModeButton(32, iconColor: value),
                   Spacer(),
 
-                  if (isTV) rewindButton(25, iconColor: value),
+                  if (isTV) rewindButton(32, iconColor: value),
 
-                  skip2PreviousButton(25, iconColor: value),
+                  skip2PreviousButton(32, iconColor: value),
 
-                  playOrPauseButton(35, iconColor: value),
+                  playOrPauseButton(48, iconColor: value),
 
-                  skip2NextButton(25, iconColor: value),
+                  skip2NextButton(32, iconColor: value),
 
-                  if (isTV) forwardButton(25, iconColor: value),
+                  if (isTV) forwardButton(32, iconColor: value),
 
                   Spacer(),
-                  showPlayQueueButton(25, iconColor: value),
+                  showPlayQueueButton(32, iconColor: value),
                 ],
               ),
             ),

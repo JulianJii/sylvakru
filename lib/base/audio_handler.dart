@@ -39,7 +39,7 @@ bool _sessionActive = false;
 
 /// 是否允许和其他 App 一起出声。Android 靠不申请音频焦点实现（焦点一旦被抢，
 /// 对方的播放会被系统要求停掉）；iOS 靠 mixWithOthers 这个 category 选项。
-final mixWithOtherAppsNotifier = ValueNotifier(false);
+final mixWithOtherAppsNotifier = ValueNotifier(true);
 
 late MyAudioHandler audioHandler;
 
@@ -168,6 +168,7 @@ class MyAudioHandler extends BaseAudioHandler {
   late File _positionState;
 
   Timer? _positionTimer;
+  Timer? _stallTimer;
 
   MyAudioHandler() {
     // avoid reading .lrc files
@@ -223,6 +224,8 @@ class MyAudioHandler extends BaseAudioHandler {
     });
 
     _player.stream.position.listen((position) async {
+      // 走出第一个进度就说明真的放出来了，撤掉卡死看门狗。
+      if (position > Duration.zero) _cancelStallWatchdog();
       final currentSong = currentSongNotifier.value;
       if (currentSong == null ||
           position < Duration.zero ||
@@ -329,6 +332,25 @@ class MyAudioHandler extends BaseAudioHandler {
         updatePosition: postion ?? _player.state.position,
       ),
     );
+  }
+
+  /// 播放卡死看门狗：开始播放后 10 秒还没走出第一个播放进度，
+  /// 就当作网络问题导致这首一直放不出来，直接下一首。
+  void _armStallWatchdog() {
+    _stallTimer?.cancel();
+    _stallTimer = Timer(const Duration(seconds: 10), () {
+      _stallTimer = null;
+      // 用户主动暂停的不算卡死。
+      if (!isPlayingNotifier.value) return;
+      // 已经有播放进度，说明放出来了。
+      if (_player.state.position > Duration.zero) return;
+      skipToNext();
+    });
+  }
+
+  void _cancelStallWatchdog() {
+    _stallTimer?.cancel();
+    _stallTimer = null;
   }
 
   void _prepare() {
@@ -626,6 +648,7 @@ class MyAudioHandler extends BaseAudioHandler {
   }
 
   void justClear() {
+    _cancelStallWatchdog();
     _player.stop();
     updateIsPlaying(false);
     updatePlaybackState(stop: true);
@@ -695,13 +718,20 @@ class MyAudioHandler extends BaseAudioHandler {
   }
 
   Future<void> load({Duration? start}) async {
+    // 换歌了，上一首的卡死看门狗作废。
+    _cancelStallWatchdog();
     if (currentSongNotifier.value != null) {
       if (_playLastSyncTime != null) {
         _playedDuration += DateTime.now().difference(_playLastSyncTime!);
       }
 
-      double times =
-          _playedDuration.inSeconds / _player.state.duration.inSeconds;
+      // 播放器时长未知时（流还没探测出时长，或上一首压根没打开成功）不能做除法：
+      // 正数/0 得 Infinity、0/0 得 NaN，`times.round()` 会抛
+      // 「Unsupported operation: Infinity or NaN toInt」，把这次换歌整个打断。
+      final totalSeconds = _player.state.duration.inSeconds;
+      final times = totalSeconds > 0
+          ? _playedDuration.inSeconds / totalSeconds
+          : 0.0;
       if (times > 0.5) {
         library.tryAddCache(currentSongNotifier.value!);
         history.addSongTimes(currentSongNotifier.value!, times.round());
@@ -761,6 +791,7 @@ class MyAudioHandler extends BaseAudioHandler {
 
       if (isPlayingNotifier.value) {
         _playLastSyncTime = DateTime.now();
+        _armStallWatchdog();
       }
     } catch (error) {
       stop();
@@ -809,6 +840,7 @@ class MyAudioHandler extends BaseAudioHandler {
 
     updateIsPlaying(true);
     updatePlaybackState();
+    _armStallWatchdog();
 
     _positionTimer ??= Timer.periodic(Duration(seconds: 1), (_) {
       _positionState.writeAsString(getPosition().inMilliseconds.toString());
@@ -817,6 +849,7 @@ class MyAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> pause() async {
+    _cancelStallWatchdog();
     _player.pause();
     updateIsPlaying(false);
     updatePlaybackState();
@@ -828,6 +861,7 @@ class MyAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> stop() async {
+    _cancelStallWatchdog();
     _player.stop();
     updateIsPlaying(false);
     updatePlaybackState(stop: true);

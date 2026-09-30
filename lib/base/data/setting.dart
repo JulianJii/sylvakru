@@ -93,7 +93,7 @@ class Setting {
         json['exitOnClose'] as bool? ?? exitOnCloseNotifier.value;
 
     mixWithOtherAppsNotifier.value =
-        json['mixWithOtherApps'] as bool? ?? false;
+        json['mixWithOtherApps'] as bool? ?? true;
 
     autoRotateNotifier.value = json['autoRotate'] as bool? ?? true;
 

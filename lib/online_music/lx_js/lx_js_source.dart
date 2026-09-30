@@ -1,5 +1,6 @@
 // 自定义源脚本的生命周期管理：一个脚本 -> 一个 QuickJS 运行时。
-// 可以同时导入多个脚本：取链按导入顺序依次尝试，前一个失败自动换下一个。
+// 音源单选：可以导入多个脚本，但上层同一时间只把选中的那个交给这里，
+// 所以列表里通常只有一个条目；多个条目时取链按导入顺序依次尝试。
 //
 // 上层（OnlineApiClient）只跟这里打交道，不直接碰引擎。
 
@@ -9,7 +10,20 @@ import 'package:sylvakru/online_music/lx_js/lx_js_bridge.dart';
 class LxScriptEntry {
   const LxScriptEntry({required this.name, required this.script, this.url = ''});
 
-  /// 脚本名（导入时取链接末段）。
+  /// 由脚本正文生成条目：名字取脚本头注释里的 `@name`（与 lx-music 一致），
+  /// 脚本没写才退回 [name]（导入时是链接末段）。
+  factory LxScriptEntry.fromScript(
+    String script, {
+    String name = 'custom',
+    String url = '',
+  }) => LxScriptEntry(
+    name: LxScriptMeta.fromScript(script, name: name).name,
+    script: script,
+    url: url,
+  );
+
+  /// 脚本展示名：走 [LxScriptEntry.fromScript] 时就是脚本声明的 `@name`，
+  /// 脚本没声明才退回链接末段或手工指定的名字。
   final String name;
 
   /// 脚本正文。
@@ -20,15 +34,16 @@ class LxScriptEntry {
 
   Map<String, dynamic> toJson() => {'name': name, 'url': url, 'script': script};
 
-  /// 反序列化；正文缺失的条目直接丢掉（返回 null）。
+  /// 反序列化；正文缺失的条目直接丢掉（返回 null）。名字一并按脚本里的
+  /// `@name` 重算，老版本存在设置文件里的链接名会自动纠正。
   static LxScriptEntry? fromJson(Object? value) {
     if (value is! Map) return null;
     final script = '${value['script'] ?? ''}';
     if (script.isEmpty) return null;
     final name = '${value['name'] ?? ''}';
-    return LxScriptEntry(
+    return LxScriptEntry.fromScript(
+      script,
       name: name.isEmpty ? 'custom' : name,
-      script: script,
       url: '${value['url'] ?? ''}',
     );
   }
