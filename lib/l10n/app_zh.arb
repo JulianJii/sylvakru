@@ -180,6 +180,8 @@
   "offset": "偏移",
   "getStart": "开始使用",
   "immersiveWideLayout": "宽布局启用沉浸模式",
+  "wideShowTopSystemBar": "宽布局显示顶部系统条",
+  "wideShowBottomSystemBar": "宽布局显示底部系统条",
   "menuOnRight": "从右侧弹出菜单",
   "save": "保存",
   "chooseMusicSource": "选择音乐来源",

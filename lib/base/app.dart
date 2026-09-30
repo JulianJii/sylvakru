@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 
-const String versionNumber = '4.4.0';
+const String versionNumber = '4.4.1';
 
 late final Directory appDocsDir;
 late final Directory appSupportDir;
@@ -40,3 +40,7 @@ enum ViewMode { normal, mini, bigPicture }
 final viewModeNotifier = ValueNotifier(ViewMode.normal);
 
 final immersiveWideLayoutNotifier = ValueNotifier(true);
+
+// 宽布局关闭沉浸模式时，顶/底系统条各自是否显示
+final wideShowTopSystemBarNotifier = ValueNotifier(true);
+final wideShowBottomSystemBarNotifier = ValueNotifier(true);

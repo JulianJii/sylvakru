@@ -42,7 +42,7 @@ class LyricsListViewState extends State<LyricsListView>
 
   void scroll2CurrentIndex() async {
     final currentIndex = currentLyricsIndexNotifier.value;
-    if (!userDragging) {
+    if (!userDragging && currentIndex < lines.length && !loadingSong) {
       if (itemScrollController.isAttached) {
         if (jump) {
           itemScrollController.jumpTo(

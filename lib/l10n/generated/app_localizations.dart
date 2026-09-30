@@ -1184,6 +1184,18 @@ abstract class AppLocalizations {
   /// **'Immersive for Wide Layout'**
   String get immersiveWideLayout;
 
+  /// No description provided for @wideShowTopSystemBar.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Top System Bar in Wide Layout'**
+  String get wideShowTopSystemBar;
+
+  /// No description provided for @wideShowBottomSystemBar.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Bottom System Bar in Wide Layout'**
+  String get wideShowBottomSystemBar;
+
   /// No description provided for @menuOnRight.
   ///
   /// In en, this message translates to:

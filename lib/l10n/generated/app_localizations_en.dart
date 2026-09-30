@@ -566,6 +566,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get immersiveWideLayout => 'Immersive for Wide Layout';
 
   @override
+  String get wideShowTopSystemBar => 'Show Top System Bar in Wide Layout';
+
+  @override
+  String get wideShowBottomSystemBar => 'Show Bottom System Bar in Wide Layout';
+
+  @override
   String get menuOnRight => 'Open Menu from Right';
 
   @override

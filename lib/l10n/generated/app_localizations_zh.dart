@@ -566,6 +566,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get immersiveWideLayout => '宽布局启用沉浸模式';
 
   @override
+  String get wideShowTopSystemBar => '宽布局显示顶部系统条';
+
+  @override
+  String get wideShowBottomSystemBar => '宽布局显示底部系统条';
+
+  @override
   String get menuOnRight => '从右侧弹出菜单';
 
   @override

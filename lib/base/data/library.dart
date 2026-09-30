@@ -178,7 +178,7 @@ class Library {
     }
     int total = 0;
     await for (final file in cacheDir.list()) {
-      if (file is File) {
+      if (file is File && !file.path.endsWith('.part')) {
         total += await file.length();
       }
     }
@@ -189,7 +189,7 @@ class Library {
     if (sourceType == .local || song.cacheExist) {
       return;
     }
-    final savePath = song.cachePath!;
+    final savePath = "${song.cachePath!}.part";
     late bool success;
     // delay download to prevent it from running at the same time as audio loading
     await Future.delayed(Duration(seconds: 3));
@@ -207,8 +207,9 @@ class Library {
     final tmp = File(savePath);
     if (await tmp.exists()) {
       if (success) {
-        song.cacheExist = true;
         cacheSizeNotifier.value += await tmp.length() / (1024 * 1024);
+        await tmp.rename(song.cachePath!);
+        song.cacheExist = true;
       } else {
         await tmp.delete();
       }

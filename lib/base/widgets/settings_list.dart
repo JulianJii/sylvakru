@@ -156,10 +156,17 @@ class _SettingsListState extends State<SettingsList> {
 
         sliverBox(paddingIfNeed(isLandscape, equalizerListTile(context, l10n))),
 
-        if (Platform.isAndroid && !isTV)
+        if (Platform.isAndroid && !isTV) ...[
           sliverBox(
             paddingIfNeed(isLandscape, immersiveWideLayoutListTile(l10n)),
           ),
+          sliverBox(
+            paddingIfNeed(isLandscape, wideSystemBarListTile(l10n, top: true)),
+          ),
+          sliverBox(
+            paddingIfNeed(isLandscape, wideSystemBarListTile(l10n, top: false)),
+          ),
+        ],
 
         sliverBox(paddingIfNeed(isLandscape, autoPlayOnStartupListTile(l10n))),
 
@@ -827,16 +834,56 @@ class _SettingsListState extends State<SettingsList> {
               valueNotifier: immersiveWideLayoutNotifier,
               onToggleCallBack: () {
                 if (!isTooNarrow(context)) {
-                  applySystemUiMode(
-                    mode: immersiveWideLayoutNotifier.value
-                        ? .immersiveSticky
-                        : .edgeToEdge,
-                  );
+                  applyWideLayoutSystemUiMode();
                 }
                 setting.save();
               },
             );
           },
+        ),
+      ),
+    );
+  }
+
+  // 宽布局关闭沉浸模式时才显示，分别控制顶/底系统条
+  Widget wideSystemBarListTile(AppLocalizations l10n, {required bool top}) {
+    return ValueListenableBuilder(
+      valueListenable: immersiveWideLayoutNotifier,
+      builder: (context, immersive, child) {
+        if (immersive) {
+          return const SizedBox.shrink();
+        }
+        return child!;
+      },
+      child: ListTile(
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 30),
+          child: Icon(
+            top ? Icons.border_top : Icons.border_bottom,
+            size: iconSize,
+            color: iconColor.value,
+          ),
+        ),
+        title: Text(
+          top ? l10n.wideShowTopSystemBar : l10n.wideShowBottomSystemBar,
+        ),
+        trailing: SizedBox(
+          width: 50,
+          child: Builder(
+            builder: (context) {
+              return MySwitch(
+                valueNotifier: top
+                    ? wideShowTopSystemBarNotifier
+                    : wideShowBottomSystemBarNotifier,
+                onToggleCallBack: () {
+                  if (!isTooNarrow(context)) {
+                    applyWideLayoutSystemUiMode();
+                  }
+                  setting.save();
+                },
+              );
+            },
+          ),
         ),
       ),
     );

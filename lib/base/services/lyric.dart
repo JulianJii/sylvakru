@@ -81,7 +81,6 @@ Future<void> setParsedLyrics(MyAudioMetadata song) async {
     return;
   }
   ParsedLyrics result = ParsedLyrics();
-  song.parsedLyrics = result;
 
   List<String> lines = [];
 
@@ -142,6 +141,8 @@ Future<void> setParsedLyrics(MyAudioMetadata song) async {
     parseFailedMessage: l10n.lyricsParseFailed,
     songDuration: song.duration,
   );
+
+  song.parsedLyrics = result;
 }
 
 /// Fills in [result] from already-fetched raw LRC lines: parses word/line

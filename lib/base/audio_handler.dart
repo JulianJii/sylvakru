@@ -57,6 +57,8 @@ final currentLyricsIndexNotifier = ValueNotifier(-1);
 
 final controlCenterLyricsNotifier = ValueNotifier(false);
 
+bool loadingSong = false;
+
 Future<void> initAudioService() async {
   MediaKit.ensureInitialized();
   try {
@@ -223,55 +225,60 @@ class MyAudioHandler extends BaseAudioHandler {
       layersManager.updateBackground();
     });
 
-    _player.stream.position.listen((position) async {
+    _player.stream.position.listen((position) {
       // 走出第一个进度就说明真的放出来了，撤掉卡死看门狗。
       if (position > Duration.zero) _cancelStallWatchdog();
-      final currentSong = currentSongNotifier.value;
-      if (currentSong == null ||
-          position < Duration.zero ||
-          currentSongNotifier.value!.parsedLyrics == null) {
-        return;
-      }
-      int tmp = currentLyricsIndexNotifier.value;
-      final lines = currentSong.parsedLyrics!.lines;
-
-      position += Duration(milliseconds: currentSong.lyricsTimeOffset);
-
-      if (tmp >= 0 &&
-          tmp + 1 < lines.length &&
-          position >= lines[tmp].start &&
-          position <= lines[tmp + 1].start) {
-        return;
-      }
-
-      int current = -1;
-      if (position >= lines.last.start) {
-        current = lines.length - 1;
-      } else {
-        for (int i = 0; i < lines.length; i++) {
-          final line = lines[i];
-          if (position < line.start) {
-            break;
-          }
-          if (current == -1 || line.start > lines[current].start) {
-            current = i;
-          }
-        }
-      }
-
-      if (current != currentLyricsIndexNotifier.value) {
-        currentLyricsIndexNotifier.value = current;
-
-        if (controlCenterLyricsNotifier.value) {
-          updateServiceMediaItem(currentSong, lyric: lines[current].text);
-          updatePlaybackState();
-        }
-
-        if (Platform.isIOS) {
-          HomeWidgetService.updateLyricsIndex();
-        }
-      }
+      _updateCurrentLyricIndex(position);
     });
+  }
+
+  void _updateCurrentLyricIndex(Duration position) {
+    final currentSong = currentSongNotifier.value;
+    if (currentSong == null ||
+        loadingSong ||
+        position < Duration.zero ||
+        currentSongNotifier.value!.parsedLyrics == null) {
+      return;
+    }
+    int tmp = currentLyricsIndexNotifier.value;
+    final lines = currentSong.parsedLyrics!.lines;
+
+    position += Duration(milliseconds: currentSong.lyricsTimeOffset);
+
+    if (tmp >= 0 &&
+        tmp + 1 < lines.length &&
+        position >= lines[tmp].start &&
+        position <= lines[tmp + 1].start) {
+      return;
+    }
+
+    int current = -1;
+    if (position >= lines.last.start) {
+      current = lines.length - 1;
+    } else {
+      for (int i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        if (position < line.start) {
+          break;
+        }
+        if (current == -1 || line.start > lines[current].start) {
+          current = i;
+        }
+      }
+    }
+
+    if (current != currentLyricsIndexNotifier.value) {
+      currentLyricsIndexNotifier.value = current;
+
+      if (controlCenterLyricsNotifier.value) {
+        updateServiceMediaItem(currentSong, lyric: lines[current].text);
+        updatePlaybackState();
+      }
+
+      if (Platform.isIOS) {
+        HomeWidgetService.updateLyricsIndex();
+      }
+    }
   }
 
   /// 修正 Android 上的音频输出后端。
@@ -745,6 +752,8 @@ class MyAudioHandler extends BaseAudioHandler {
 
     final currentSong = playQueue[currentIndex];
 
+    loadingSong = true;
+
     await _setLyricsAndUpdateColors(currentSong);
 
     currentSongNotifier.value = currentSong;
@@ -805,6 +814,8 @@ class MyAudioHandler extends BaseAudioHandler {
     if (start == null) {
       _positionState.writeAsString(Duration.zero.inMilliseconds.toString());
     }
+
+    loadingSong = false;
 
     if (Platform.isIOS) {
       HomeWidgetService.updateNowPlayingWidget();

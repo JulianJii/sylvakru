@@ -68,6 +68,14 @@ class Setting {
     immersiveWideLayoutNotifier.value =
         json['immersiveWideLayout'] as bool? ?? true;
 
+    wideShowTopSystemBarNotifier.value =
+        json['wideShowTopSystemBar'] as bool? ??
+        wideShowTopSystemBarNotifier.value;
+
+    wideShowBottomSystemBarNotifier.value =
+        json['wideShowBottomSystemBar'] as bool? ??
+        wideShowBottomSystemBarNotifier.value;
+
     autoPlayOnStartupNotifier.value =
         json['autoPlayOnStartup'] as bool? ?? false;
 
@@ -119,6 +127,8 @@ class Setting {
         'language': localeNotifier.value?.languageCode,
 
         'immersiveWideLayout': immersiveWideLayoutNotifier.value,
+        'wideShowTopSystemBar': wideShowTopSystemBarNotifier.value,
+        'wideShowBottomSystemBar': wideShowBottomSystemBarNotifier.value,
         'autoPlayOnStartup': autoPlayOnStartupNotifier.value,
 
         'fontFamily': fontFamilyNotifier.value,
