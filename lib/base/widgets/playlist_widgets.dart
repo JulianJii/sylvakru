@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:sylvakru/base/data/loader.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/asset_images.dart';
 import 'package:sylvakru/base/services/home_widget_service.dart';
@@ -103,6 +104,10 @@ class _Add2PlaylistPanelState extends State<Add2PlaylistPanel> {
 
 Future<bool> showCreatePlaylistDialog(BuildContext context) async {
   final l10n = AppLocalizations.of(context);
+  if (Loader.busy) {
+    showCenterMessage(l10n.syncingTryLater);
+    return false;
+  }
 
   final result = await getInputTextDialog(context, l10n.createPlaylist);
   if (result != '') {
