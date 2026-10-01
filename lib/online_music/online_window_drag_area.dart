@@ -15,7 +15,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/app.dart';
 import 'package:sylvakru/base/asset_images.dart';
 import 'package:sylvakru/base/services/my_window_listener.dart';
-import 'package:sylvakru/online_music/online_music_page.dart';
+import 'package:sylvakru/online_music/theme/online_theme.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 页面顶部的窗口拖动区。

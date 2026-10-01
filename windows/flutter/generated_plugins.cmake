@@ -8,6 +8,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_secure_storage_windows
   gamepads_windows
   media_kit_libs_windows_audio
+  open_folder
   permission_handler_windows
   quickjs_engine
   screen_retriever_windows

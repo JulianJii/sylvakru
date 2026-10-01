@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:open_folder/open_folder.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sylvakru/base/app.dart';
@@ -62,15 +63,20 @@ class OnlineDownloader {
 
   bool get hasDirectory => onlineSettings.downloadDir.value.isNotEmpty;
 
-  /// 设置项里展示用的目录文本。移动端拿不到真实路径，只说清是什么类型的位置。
+  /// 设置项里展示用的目录文本。各平台都只显示选中位置的最后一级名字。
   String get directoryDisplay {
     final raw = onlineSettings.downloadDir.value;
     final uri = raw.isEmpty ? null : Uri.tryParse(raw);
-    return switch (uri) {
-      null => '未设置',
-      final u when u.scheme == 'file' => u.toFilePath(windows: Platform.isWindows),
-      final u => '已选择目录（${u.scheme}）',
-    };
+    if (uri == null) return '未设置';
+    // Android 的 content:// 把路径塞在最后一段里（形如 primary:Download/Music），
+    // 桌面端是 file:///D:/music，所以按 : 和 / 再拆一层，只留最后一级目录名。
+    final names = uri.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .expand((segment) => segment.split(RegExp(r'[:/\\]')))
+        .where((name) => name.isNotEmpty)
+        .toList();
+    final name = names.isEmpty ? uri.host : names.last;
+    return '已选择目录（${name.isEmpty ? uri.scheme : name}）';
   }
 
   Future<void> init() async {
@@ -176,23 +182,41 @@ class OnlineDownloader {
     _notify();
   }
 
-  /// 在系统文件管理器里打开下载目录。移动端没有通用接口，返回 false 由调用方忽略。
+  /// 存下来的目录能不能交给系统文件管理器打开（iOS 的书签还原不出路径）。
+  bool get canOpenDirectory => _directoryPath() != null;
+
+  /// 在系统文件管理器里打开下载目录。
   Future<bool> openDirectory() async {
-    final dir = await _directoryUri();
-    if (dir == null || dir.scheme != 'file') return false;
-    final path = dir.toFilePath(windows: Platform.isWindows);
-    final command = switch (Platform.operatingSystem) {
-      'windows' => 'explorer',
-      'macos' => 'open',
-      _ => 'xdg-open',
-    };
+    final path = _directoryPath();
+    if (path == null) return false;
     try {
-      final result = await Process.run(command, [path]);
-      return result.exitCode == 0;
+      final result = await OpenFolder.openFolder(path);
+      if (!result.isSuccess) {
+        logger.output('[online] 打开下载目录失败: ${result.message}');
+      }
+      return result.isSuccess;
     } catch (e) {
       logger.output('[online] 打开下载目录失败: $e');
       return false;
     }
+  }
+
+  /// 把存下来的目录 URI 换成本地路径；换不出来返回 null。
+  String? _directoryPath() {
+    final uri = Uri.tryParse(onlineSettings.downloadDir.value);
+    if (uri == null) return null;
+    if (uri.scheme == 'file') return uri.toFilePath(windows: Platform.isWindows);
+    // Android 的 content:// 目录 URI 最后一段是文档 ID，形如 primary:Download/Music，
+    // 冒号前是存储卷，后面是相对路径。其他 provider（Downloads 等）认不出来就作罢。
+    if (uri.scheme != 'content' || uri.pathSegments.isEmpty) return null;
+    final docId = uri.pathSegments.last;
+    if (docId.startsWith('/')) return docId;
+    final colon = docId.indexOf(':');
+    if (colon <= 0) return null;
+    final volume = docId.substring(0, colon);
+    final relative = docId.substring(colon + 1);
+    final root = volume == 'primary' ? '/storage/emulated/0' : '/storage/$volume';
+    return relative.isEmpty ? root : '$root/$relative';
   }
 
   /// 当前下载目录；没设置或权限恢复失败时返回 null。

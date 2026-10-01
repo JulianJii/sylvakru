@@ -3,7 +3,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/online_music/online_download.dart';
 import 'package:sylvakru/online_music/online_music_api.dart';
-import 'package:sylvakru/online_music/online_music_page.dart';
+import 'package:sylvakru/online_music/theme/online_theme.dart';
+import 'package:sylvakru/online_music/widgets/online_page_widgets.dart';
 
 /// 以对话框形式打开下载管理面板。
 Future<void> openDownloadPanel(BuildContext context) {
@@ -146,7 +147,8 @@ class _Footer extends StatelessWidget {
         return Row(
           children: [
             TextButton.icon(
-              onPressed: onlineDownloader.hasDirectory
+              // iOS 的书签还原不出路径，这种时候干脆不给点。
+              onPressed: onlineDownloader.canOpenDirectory
                   ? () => onlineDownloader.openDirectory()
                   : null,
               icon: const Icon(Icons.open_in_new_rounded, size: 16),
@@ -197,7 +199,7 @@ class _EntryRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                _Tag(text: entry.quality),
+                OnlineTag(text: entry.quality),
                 const SizedBox(width: 6),
                 // 结束的条目不需要暂停键，删除键已在下面一行。
                 if (active) _PauseButton(entry: entry),
@@ -278,27 +280,6 @@ class _PauseButton extends StatelessWidget {
       icon: Icon(
         paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
         color: OnlinePalette.textFaint,
-      ),
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  const _Tag({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: OnlinePalette.textFaint.withAlpha(30),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 11, color: OnlinePalette.textFaint),
       ),
     );
   }

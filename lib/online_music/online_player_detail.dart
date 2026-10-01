@@ -13,7 +13,8 @@ import 'package:sylvakru/base/audio_handler.dart';
 import 'package:sylvakru/base/services/lyric.dart';
 import 'package:sylvakru/base/utils/metadata_utils.dart';
 import 'package:sylvakru/online_music/online_music_api.dart';
-import 'package:sylvakru/online_music/online_music_page.dart';
+import 'package:sylvakru/online_music/theme/online_theme.dart';
+import 'package:sylvakru/online_music/widgets/online_page_widgets.dart';
 import 'package:sylvakru/online_music/online_window_drag_area.dart';
 
 /// 当前在播的在线曲目。搜索/歌单结果是唯一来源（封面、歌词都靠它）。
