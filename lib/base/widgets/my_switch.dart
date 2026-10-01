@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_switch/flutter_switch.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/services/interaction.dart';
 import 'package:sylvakru/base/widgets/scale_widget.dart';
@@ -53,22 +52,26 @@ class MySwitch extends StatelessWidget {
           valueListenable: switchColor.valueNotifier,
           builder: (_, _, _) {
             return ScaleWidget(
-              onTap: () {
-                valueNotifier.value = !valueNotifier.value;
-                onToggleCallBack?.call();
-              },
-              child: FlutterSwitch(
-                width: 45,
-                height: 20,
-                toggleSize: 15,
-                activeColor: switchColor.value,
-                inactiveColor: Colors.grey.shade300,
-                value: value,
-                onToggle: (value) {
-                  tryVibrate();
-                  valueNotifier.value = !valueNotifier.value;
-                  onToggleCallBack?.call();
-                },
+              // ponytail: M3 Switch 是 52x32，缩放只为对齐原来的 45x20 尺寸，
+              // 想改大小就调这里。
+              child: Transform.scale(
+                scale: 0.7,
+                child: Switch(
+                  value: value,
+                  activeTrackColor: switchColor.value,
+                  activeThumbColor: Colors.white,
+                  inactiveTrackColor: Colors.grey.shade300,
+                  inactiveThumbColor: Colors.white,
+                  trackOutlineColor: const WidgetStatePropertyAll(
+                    Colors.transparent,
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onChanged: (value) {
+                    tryVibrate();
+                    valueNotifier.value = value;
+                    onToggleCallBack?.call();
+                  },
+                ),
               ),
             );
           },
