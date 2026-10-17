@@ -141,20 +141,26 @@ class OnlineDownloader {
     }
     // 直链是 http 的统一升级成 https，避免明文下载。
     if (url.startsWith('http://')) url = url.replaceFirst('http://', 'https://');
-    if (entryOf(track.id) != entry) return null; // 解析期间被用户移除了
+    // 解析期间被用户取消或移除了，收手。
+    if (entryOf(track.id) != entry || entry.state != OnlineDownloadState.resolving) {
+      return null;
+    }
 
     await _askNotificationPermission();
-    final transfer = await FileDownloader().transfers.start(
-      UriDownloadTask(
-        url: url,
-        directoryUri: dir,
-        filename: entry.fileName,
-        metaData: track.id,
-        transferHints: const {TransferHint.userInitiated, TransferHint.largeFile},
-      ),
-    );
-    _transfers[track.id] = transfer;
-    _watch(transfer, entry);
+    try {
+      final transfer = await FileDownloader().transfers.start(
+        _buildTask(url: url, dir: dir, fileName: entry.fileName, trackId: track.id),
+      );
+      _transfers[track.id] = transfer;
+      _watch(transfer, entry);
+    } catch (e) {
+      entry
+        ..state = OnlineDownloadState.failed
+        ..error = '$e';
+      _notify();
+      logger.output('[online] 下载启动失败 ${entry.fileName}: $e');
+      return '「${track.name}」下载失败：$e';
+    }
     logger.output('[online] 开始下载 ${entry.fileName} @$q');
     return null;
   }
@@ -166,7 +172,19 @@ class OnlineDownloader {
 
   Future<void> resume(String trackId) async => _transfers[trackId]?.resume();
 
-  Future<void> cancel(String trackId) async => _transfers[trackId]?.cancel();
+  /// 取消。还在解析直链时没有 Transfer 可取消，直接把条目标成已取消，
+  /// [download] 拿到直链回头看到状态变了就收手。
+  Future<void> cancel(String trackId) async {
+    final transfer = _transfers.remove(trackId);
+    if (transfer != null) {
+      await transfer.cancel();
+      return;
+    }
+    final entry = entryOf(trackId);
+    if (entry == null) return;
+    entry.state = OnlineDownloadState.canceled;
+    _notify();
+  }
 
   void remove(String trackId) {
     _transfers.remove(trackId);
@@ -275,6 +293,37 @@ class OnlineDownloader {
       return onlineSettings.quality.value;
     }
     return own.isEmpty ? '128k' : own.first;
+  }
+
+  /// 桌面端（file://）必须走普通 [DownloadTask]：插件的 [UriDownloadTask] 构造时
+  /// 会把目录 URI 再喂给 `Uri.file`，Windows 盘符的冒号直接抛
+  /// `Illegal character in path`，任务根本建不起来（表现就是一直停在解析直链）。
+  /// 只有移动端那种换不出真实路径的 URI 才需要 [UriDownloadTask]。
+  static DownloadTask _buildTask({
+    required String url,
+    required Uri dir,
+    required String fileName,
+    required String trackId,
+  }) {
+    const hints = {TransferHint.userInitiated, TransferHint.largeFile};
+    if (dir.scheme == 'file') {
+      return DownloadTask(
+        url: url,
+        // root + 绝对目录：插件在 Windows 上把 root 解析成空串再拼目录。
+        baseDirectory: BaseDirectory.root,
+        directory: dir.toFilePath(windows: Platform.isWindows),
+        filename: fileName,
+        metaData: trackId,
+        transferHints: hints,
+      );
+    }
+    return UriDownloadTask(
+      url: url,
+      directoryUri: dir,
+      filename: fileName,
+      metaData: trackId,
+      transferHints: hints,
+    );
   }
 
   static String _buildFileName(OnlineTrack track, String quality, Uri dir) {
