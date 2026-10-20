@@ -1,15 +1,21 @@
-// 音源设置对话框与导入脚本链接的对话框。
+// 在线音乐的设置对话框：左侧分类，右侧内容。
+//
+// 音源脚本的导入/移除/切换逻辑都在这里；缓存只占桌面端一块，移动端整块隐藏。
 
+import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/services/logger.dart';
 import 'package:sylvakru/online_music/lx_js/lx_js_source.dart';
+import 'package:sylvakru/online_music/online_cache.dart';
 import 'package:sylvakru/online_music/online_download.dart';
 import 'package:sylvakru/online_music/online_music_api.dart';
 import 'package:sylvakru/online_music/theme/online_theme.dart';
 import 'package:sylvakru/online_music/widgets/online_notice.dart';
 import 'package:sylvakru/online_music/widgets/online_page_widgets.dart';
 
-/// 音源设置：管理自定义源脚本、下载目录与默认音质。
+enum _SettingsSection { source, download, cache }
+
+/// 在线音乐设置：音源脚本、下载与音质、播放缓存（仅桌面）。
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({super.key});
 
@@ -18,7 +24,9 @@ class SettingsDialog extends StatefulWidget {
 }
 
 class _SettingsDialogState extends State<SettingsDialog> {
+  _SettingsSection _section = _SettingsSection.source;
   bool _importing = false;
+  bool _clearing = false;
 
   /// 已导入脚本声明了哪些音源，导入/移除后重建。
   late Future<Map<String, List<String>>> _sourcesFuture;
@@ -96,23 +104,61 @@ class _SettingsDialogState extends State<SettingsDialog> {
     });
   }
 
+  Future<void> _pickCacheDir() async {
+    final path = await FilePicker.getDirectoryPath();
+    if (path == null || !mounted) return;
+    onlineSettings.cacheDir.value = path;
+    await onlineSettings.save();
+    await onlineCache.enforceLimit();
+  }
+
+  Future<void> _resetCacheDir() async {
+    onlineSettings.cacheDir.value = '';
+    await onlineSettings.save();
+    await onlineCache.enforceLimit();
+  }
+
+  Future<void> _clearCache() async {
+    setState(() => _clearing = true);
+    try {
+      await onlineCache.clear();
+      if (mounted) showOnlineNotice(context, '缓存已清空');
+    } finally {
+      if (mounted) setState(() => _clearing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final sections = <(_SettingsSection, IconData, String)>[
+      (_SettingsSection.source, Icons.javascript_rounded, '音源设置'),
+      (_SettingsSection.download, Icons.download_rounded, '下载与音质'),
+      if (onlineCache.enabled)
+        (_SettingsSection.cache, Icons.storage_rounded, '缓存'),
+    ];
+    final size = MediaQuery.sizeOf(context);
+    final width = size.width < 808
+        ? (size.width - 32).clamp(280.0, 760.0)
+        : 760.0;
+    final height = size.height < 660
+        ? (size.height - 32).clamp(320.0, 620.0)
+        : 620.0;
+
     return Dialog(
       backgroundColor: OnlinePalette.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 620),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 14, 12, 14),
+              child: Row(
                 children: [
                   const Text(
-                    '音源设置',
+                    '设置',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const Spacer(),
@@ -122,82 +168,118 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                '播放直链由洛雪音乐的「自定义源」脚本解析，可导入多个 .js 脚本链接；'
-                '音源单选，只有勾选的那个脚本生效。',
-                style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
-              ),
-              const SizedBox(height: 14),
-              Flexible(child: _buildScriptArea()),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: OnlinePalette.primary,
-                  foregroundColor: OnlinePalette.onPrimary,
-                ),
-                onPressed: _importing ? null : _importScript,
-                icon: const Icon(Icons.link_rounded, size: 18),
-                label: const Text('导入脚本'),
-              ),
-              const SizedBox(height: 16),
-              Divider(height: 1, color: OnlinePalette.surfaceAlt),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Text(
-                    '下载目录',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: OnlinePalette.textDim,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ValueListenableBuilder<String>(
-                      valueListenable: onlineSettings.downloadDir,
-                      builder: (context, _, _) => Text(
-                        onlineDownloader.directoryDisplay,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: OnlinePalette.textFaint,
-                        ),
+            ),
+            Divider(height: 1, color: OnlinePalette.surfaceAlt),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 560;
+                  final content = Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 150),
+                      // 默认 layoutBuilder 用 Stack 包裹，会让内容在垂直方向居中
+                      layoutBuilder: (current, previous) => Stack(
+                        fit: StackFit.expand,
+                        alignment: Alignment.topLeft,
+                        children: [...previous, if (current != null) current],
+                      ),
+                      child: SingleChildScrollView(
+                        key: ValueKey(_section),
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                        child: switch (_section) {
+                          _SettingsSection.source => _buildSourceSection(),
+                          _SettingsSection.download => _buildDownloadSection(),
+                          _SettingsSection.cache => _buildCacheSection(),
+                        },
                       ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () => onlineDownloader.pickDirectory(),
-                    child: const Text('选择'),
-                  ),
-                ],
+                  );
+                  if (compact) {
+                    return Column(
+                      children: [
+                        SizedBox(
+                          height: 48,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            children: [
+                              for (final item in sections)
+                                _SectionTab(
+                                  icon: item.$2,
+                                  label: item.$3,
+                                  selected: _section == item.$1,
+                                  compact: true,
+                                  onTap: () =>
+                                      setState(() => _section = item.$1),
+                                ),
+                            ],
+                          ),
+                        ),
+                        content,
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      SizedBox(
+                        width: 168,
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 12,
+                          ),
+                          children: [
+                            for (final item in sections)
+                              _SectionTab(
+                                icon: item.$2,
+                                label: item.$3,
+                                selected: _section == item.$1,
+                                compact: false,
+                                onTap: () => setState(() => _section = item.$1),
+                              ),
+                          ],
+                        ),
+                      ),
+                      VerticalDivider(
+                        width: 1,
+                        color: OnlinePalette.surfaceAlt,
+                      ),
+                      content,
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Text(
-                    '默认音质',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: OnlinePalette.textDim,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  QualityMenu(
-                    valueListenable: onlineSettings.quality,
-                    onSelected: (value) {
-                      onlineSettings.quality.value = value;
-                      onlineSettings.save();
-                      setState(() {});
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  // ---------------------------------------------------------------- 音源设置
+
+  Widget _buildSourceSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '播放直链由洛雪音乐的「自定义源」脚本解析，可导入多个 .js 脚本链接；'
+          '音源单选，只有勾选的那个脚本生效。',
+          style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+        ),
+        const SizedBox(height: 16),
+        _buildScriptArea(),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: OnlinePalette.primary,
+            foregroundColor: OnlinePalette.onPrimary,
+          ),
+          onPressed: _importing ? null : _importScript,
+          icon: const Icon(Icons.link_rounded, size: 18),
+          label: const Text('导入脚本'),
+        ),
+      ],
     );
   }
 
@@ -214,34 +296,31 @@ class _SettingsDialogState extends State<SettingsDialog> {
         final scripts = onlineSettings.scripts.value;
         if (scripts.isEmpty) {
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                '还没有自定义源脚本，请填入脚本链接导入',
-                style: TextStyle(color: OnlinePalette.textFaint),
-              ),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              '还没有自定义源脚本，请填入脚本链接导入',
+              style: TextStyle(color: OnlinePalette.textFaint),
             ),
           );
         }
         return Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Flexible(
-              // 单选组：一屏里的单选框归一组，点哪个哪个生效。
-              child: RadioGroup<int>(
-                groupValue: onlineSettings.activeScriptIndex,
-                onChanged: (index) {
-                  if (index != null) _selectScript(index);
-                },
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: scripts.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 6),
-                  itemBuilder: (context, index) =>
-                      _buildScriptTile(scripts[index], index),
-                ),
+            RadioGroup<int>(
+              groupValue: onlineSettings.activeScriptIndex,
+              onChanged: (index) {
+                if (index != null) _selectScript(index);
+              },
+              child: Column(
+                children: [
+                  for (var index = 0; index < scripts.length; index++)
+                    Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == scripts.length - 1 ? 0 : 6,
+                      ),
+                      child: _buildScriptTile(scripts[index], index),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 8),
@@ -314,6 +393,323 @@ class _SettingsDialogState extends State<SettingsDialog> {
       ...failures,
     ].join('\n');
   }
+
+  // ------------------------------------------------------------ 下载与音质
+
+  Widget _buildDownloadSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            SizedBox(
+              width: 84,
+              child: Text(
+                '下载目录',
+                style: TextStyle(fontSize: 13, color: OnlinePalette.textDim),
+              ),
+            ),
+            Expanded(
+              child: ValueListenableBuilder<String>(
+                valueListenable: onlineSettings.downloadDir,
+                builder: (context, _, _) => Text(
+                  onlineDownloader.directoryDisplay,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: OnlinePalette.textFaint,
+                  ),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => onlineDownloader.pickDirectory(),
+              child: const Text('选择'),
+            ),
+          ],
+        ),
+        Divider(height: 24, color: OnlinePalette.surfaceAlt),
+        Row(
+          children: [
+            SizedBox(
+              width: 84,
+              child: Text(
+                '默认音质',
+                style: TextStyle(fontSize: 13, color: OnlinePalette.textDim),
+              ),
+            ),
+            QualityMenu(
+              valueListenable: onlineSettings.quality,
+              onSelected: (value) {
+                onlineSettings.quality.value = value;
+                onlineSettings.save();
+                setState(() {});
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Text(
+          '下载目录用于「下载」按钮保存歌曲；默认音质同时用于播放与下载。',
+          style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------- 缓存
+
+  Widget _buildCacheSection() {
+    return ValueListenableBuilder<String>(
+      valueListenable: onlineSettings.cacheDir,
+      builder: (context, customDir, _) {
+        final dir = customDir.trim().isEmpty
+            ? onlineCache.directory.path
+            : customDir;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '播放时把音频缓存到本地，下次播放直接读缓存，省掉解析直链与网络缓冲。',
+              style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                SizedBox(
+                  width: 84,
+                  child: Text(
+                    '缓存目录',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: OnlinePalette.textDim,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    dir,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: OnlinePalette.textFaint,
+                    ),
+                  ),
+                ),
+                TextButton(onPressed: _pickCacheDir, child: const Text('选择')),
+                if (customDir.trim().isNotEmpty)
+                  TextButton(
+                    onPressed: _resetCacheDir,
+                    child: const Text('默认'),
+                  ),
+              ],
+            ),
+            Divider(height: 24, color: OnlinePalette.surfaceAlt),
+            Row(
+              children: [
+                SizedBox(
+                  width: 84,
+                  child: Text(
+                    '缓存上限',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: OnlinePalette.textDim,
+                    ),
+                  ),
+                ),
+                const _CacheLimitMenu(),
+                const SizedBox(width: 12),
+                ValueListenableBuilder<int>(
+                  valueListenable: onlineCache.usedBytes,
+                  builder: (context, bytes, _) => Text(
+                    '已占用 ${_formatBytes(bytes)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: OnlinePalette.textFaint,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: OnlinePalette.danger,
+                  side: BorderSide(color: OnlinePalette.danger.withAlpha(120)),
+                ),
+                onPressed: _clearing ? null : _clearCache,
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                label: const Text('清空缓存'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '缓存仅用于加速播放，清空不影响已下载的歌曲。',
+              style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ------------------------------------------------------------------ 小部件
+
+/// 左侧/顶部的一个分类入口。
+class _SectionTab extends StatelessWidget {
+  const _SectionTab({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.compact,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final bool compact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 4 : 0,
+        vertical: compact ? 6 : 2,
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: compact ? 8 : 11,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? OnlinePalette.primary.withAlpha(24)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 3,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: selected ? OnlinePalette.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Icon(
+                icon,
+                size: 17,
+                color: selected
+                    ? OnlinePalette.primaryLight
+                    : OnlinePalette.textFaint,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: selected ? OnlinePalette.text : OnlinePalette.textDim,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 缓存上限的档位菜单。
+class _CacheLimitMenu extends StatelessWidget {
+  const _CacheLimitMenu();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: onlineSettings.cacheMaxMb,
+      builder: (context, value, _) {
+        return PopupMenuButton<int>(
+          tooltip: '缓存上限',
+          initialValue: value,
+          color: OnlinePalette.surfaceAlt,
+          onSelected: (limit) async {
+            onlineSettings.cacheMaxMb.value = limit;
+            await onlineSettings.save();
+            await onlineCache.enforceLimit();
+          },
+          itemBuilder: (context) => [
+            for (final limit in OnlineSettings.cacheMaxOptions)
+              PopupMenuItem<int>(
+                value: limit,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      child: limit == value
+                          ? Icon(
+                              Icons.check_rounded,
+                              size: 16,
+                              color: OnlinePalette.primaryLight,
+                            )
+                          : null,
+                    ),
+                    Text(_limitLabel(limit)),
+                  ],
+                ),
+              ),
+          ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: OnlinePalette.surfaceAlt,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.sd_storage_rounded,
+                  size: 16,
+                  color: OnlinePalette.textDim,
+                ),
+                const SizedBox(width: 6),
+                Text(_limitLabel(value), style: const TextStyle(fontSize: 13)),
+                Icon(
+                  Icons.expand_more_rounded,
+                  size: 16,
+                  color: OnlinePalette.textDim,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+String _limitLabel(int mb) => mb >= 1024 ? '${mb ~/ 1024} GB' : '$mb MB';
+
+String _formatBytes(int bytes) {
+  final mb = bytes / (1024 * 1024);
+  return mb >= 1024
+      ? '${(mb / 1024).toStringAsFixed(2)} GB'
+      : '${mb.toStringAsFixed(1)} MB';
 }
 
 /// 输入自定义源脚本的下载链接。

@@ -6,6 +6,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'package:sylvakru/base/services/logger.dart';
+import 'package:sylvakru/online_music/online_cache.dart';
 import 'package:sylvakru/online_music/online_download.dart';
 import 'package:sylvakru/online_music/online_music_api.dart';
 import 'package:sylvakru/online_music/online_search_history.dart';
@@ -68,6 +69,7 @@ class OnlineSearchController extends ChangeNotifier {
     await onlineSettings.load();
     await onlineSearchHistory.load();
     await onlineDownloader.init();
+    await onlineCache.init();
     // 恢复上次选中的音源；设置里存了已下线的源就退回酷我。
     final source = onlineSettings.source.value;
     sourceFilter = onlineSearchers.containsKey(source) ? source : 'kw';

@@ -117,7 +117,7 @@ class OnlineDownloader {
     }
 
     final dir = await _directoryUri();
-    if (dir == null) return '请先选择下载目录（设置 → 下载目录）';
+    if (dir == null) return '请先选择下载目录（设置 → 下载与音质）';
 
     final q = quality ?? _defaultQuality(track);
     final entry = OnlineDownloadEntry(
@@ -327,10 +327,7 @@ class OnlineDownloader {
   }
 
   static String _buildFileName(OnlineTrack track, String quality, Uri dir) {
-    final ext = switch (quality) {
-      'flac' || 'flac24bit' || 'master' => 'flac',
-      _ => 'mp3',
-    };
+    final ext = qualityExtension(quality);
     var base = _sanitize('${track.singer} - ${track.name}');
     if (base.isEmpty) base = _sanitize(track.name);
     if (base.isEmpty) base = track.songmid;

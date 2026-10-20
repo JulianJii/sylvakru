@@ -72,7 +72,7 @@ class OnlineApiClient {
 
     final sources = await _ensureLoaded();
     if (sources.isEmpty) {
-      throw OnlineApiException('还没有导入自定义源脚本，请在「音源设置」里导入');
+      throw OnlineApiException('还没有导入自定义源脚本，请在「设置 → 音源设置」里导入');
     }
     final info = sources[track.source];
     if (info == null) {

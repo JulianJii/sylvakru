@@ -29,6 +29,12 @@ const Duration requestTimeout = Duration(seconds: 15);
 /// 音质由低到高的惯例顺序，用于给 UI 排序与挑选默认值。
 const List<String> qualityOrder = ['128k', '320k', 'flac', 'flac24bit', 'master'];
 
+/// 音质对应的文件扩展名：flac 系列与 master 都是无损，其余按 mp3 存。
+String qualityExtension(String quality) => switch (quality) {
+  'flac' || 'flac24bit' || 'master' => 'flac',
+  _ => 'mp3',
+};
+
 /// 取链时的音质尝试顺序：先试用户选的那个，再按从高到低补上脚本声明的其它音质。
 ///
 /// 音质不是歌曲属性而是脚本那边能拿到什么：野草源只给 128k，用户选了 320k

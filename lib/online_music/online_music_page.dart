@@ -7,6 +7,8 @@
 // 搜索状态与逻辑在 online_search_controller.dart，叶子组件在 widgets/，
 // 本文件只做组装、播放/下载副作用与弹窗调度。
 
+import 'dart:async';
+
 import 'package:audio_tags_lofty/audio_tags_lofty.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/audio_handler.dart';
@@ -16,6 +18,7 @@ import 'package:sylvakru/base/services/logger.dart';
 import 'package:sylvakru/base/utils/media_query.dart';
 import 'package:sylvakru/base/utils/metadata_utils.dart';
 import 'package:sylvakru/base/widgets/buttons.dart';
+import 'package:sylvakru/online_music/online_cache.dart';
 import 'package:sylvakru/online_music/online_download.dart';
 import 'package:sylvakru/online_music/online_music_api.dart';
 import 'package:sylvakru/online_music/online_play_order.dart';
@@ -152,10 +155,11 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
     final quality = _controller.qualityFor(track);
     setState(() => _resolvingId = track.id);
     try {
-      final url = await onlineApiClient.resolveUrl(
-        track: track,
-        quality: quality,
-      );
+      // 命中缓存直接播本地文件，省掉跑脚本解析直链这一步。
+      final cached = onlineCache.lookup(track, quality);
+      final url =
+          cached?.path ??
+          await onlineApiClient.resolveUrl(track: track, quality: quality);
       if (!mounted) return;
 
       final metadata = MyAudioMetadata(
@@ -189,6 +193,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       playQueueSkipHandler = _skipInActiveList;
       // 播放条和详情页靠它拿封面 / 歌词，元数据里只存了歌名歌手。
       onlineNowPlaying.value = track;
+      // 未命中缓存就边播边落盘，下次直接读本地文件；不阻塞播放。
+      if (cached == null) unawaited(onlineCache.store(track, quality, url));
       logger.output('[online] play ${track.source} ${track.name} @$quality');
     } catch (e, stack) {
       logger.output('[online] play failed: $e\n$stack');
@@ -289,9 +295,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
             const Spacer(),
             const DownloadIndicator(),
             IconButton(
-              tooltip: '音源设置',
+              tooltip: '设置',
               onPressed: _openSettings,
-              icon: const Icon(Icons.tune_rounded),
+              icon: const Icon(Icons.settings_rounded),
             ),
             const SizedBox(width: 6),
             IconButton(

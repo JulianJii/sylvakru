@@ -36,6 +36,19 @@ class OnlineSettings {
   /// iOS 是 `urlbookmark://`（只有 URI 才能跨重启恢复访问权限）。
   final ValueNotifier<String> downloadDir = ValueNotifier('');
 
+  /// 播放缓存目录（仅桌面）。空串表示用应用支持目录下的默认目录。
+  final ValueNotifier<String> cacheDir = ValueNotifier('');
+
+  /// 播放缓存上限（MB，仅桌面）。超出的按最旧文件清理。
+  final ValueNotifier<int> cacheMaxMb = ValueNotifier(defaultCacheMaxMb);
+
+  static const int defaultCacheMaxMb = 1024;
+
+  /// 缓存上限的可选档位，设置页直接按这个列表出菜单。
+  static const List<int> cacheMaxOptions = [256, 512, 1024, 2048, 4096];
+
+  static const int _minCacheMaxMb = 64;
+
   File get _file => File('${appSupportDir.path}/$_fileName');
 
   File get _scriptsFile => File('${appSupportDir.path}/$_scriptsFileName');
@@ -44,6 +57,10 @@ class OnlineSettings {
       File('${appSupportDir.path}/$_legacyScriptFileName');
 
   bool get hasScript => scripts.value.isNotEmpty;
+
+  /// 缓存上限夹到合法区间：配置文件被手改过也不至于按 0 MB 一直清缓存。
+  static int _clampCacheMax(int value) =>
+      value < _minCacheMaxMb ? _minCacheMaxMb : value;
 
   /// 生效脚本的下标；删掉脚本后可能越界，读的时候夹回合法范围。
   int get activeScriptIndex {
@@ -102,6 +119,10 @@ class OnlineSettings {
         quality.value = map['quality'] as String? ?? '128k';
         source.value = map['source'] as String? ?? 'kw';
         downloadDir.value = map['downloadDir'] as String? ?? '';
+        cacheDir.value = map['cacheDir'] as String? ?? '';
+        cacheMaxMb.value = _clampCacheMax(
+          (map['cacheMaxMb'] as num?)?.toInt() ?? defaultCacheMaxMb,
+        );
         activeScript.value = (map['activeScript'] as num?)?.toInt() ?? 0;
         legacyName = map['scriptName'] as String? ?? '';
       }
@@ -141,6 +162,8 @@ class OnlineSettings {
           'quality': quality.value,
           'source': source.value,
           'downloadDir': downloadDir.value,
+          'cacheDir': cacheDir.value,
+          'cacheMaxMb': _clampCacheMax(cacheMaxMb.value),
           'activeScript': activeScript.value,
         }),
       );
