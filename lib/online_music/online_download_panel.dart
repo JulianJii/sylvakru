@@ -19,36 +19,33 @@ class _DownloadPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 底色 / 圆角 / 标题字号都由 buildOnlineTheme 统一给出。
     return Dialog(
-      backgroundColor: OnlinePalette.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 620),
+        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 600),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
-                  const Text(
-                    '下载管理',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
+                  const Text('下载管理', style: OnlineText.dialogTitle),
                   const Spacer(),
                   IconButton(
+                    tooltip: '关闭',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
                 ],
               ),
               const _DirectoryBar(),
-              const SizedBox(height: 12),
-              Divider(height: 1, color: OnlinePalette.surfaceAlt),
               const SizedBox(height: 8),
+              Divider(height: 1, color: OnlinePalette.cardBorder),
+              const SizedBox(height: 4),
               Flexible(child: _buildList()),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               const _Footer(),
             ],
           ),
@@ -66,18 +63,31 @@ class _DownloadPanel extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.download_done_rounded,
-                  size: 40,
-                  color: OnlinePalette.textFaint,
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: OnlinePalette.surfaceAlt,
+                    borderRadius: BorderRadius.circular(
+                      OnlineLayout.radiusCard,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.download_done_rounded,
+                    size: 26,
+                    color: OnlinePalette.textFaint,
+                  ),
                 ),
-                SizedBox(height: 12),
-                Text('还没有下载任务', style: TextStyle(color: OnlinePalette.textDim)),
-                SizedBox(height: 6),
+                const SizedBox(height: 14),
+                Text(
+                  '还没有下载任务',
+                  style: OnlineText.body.copyWith(color: OnlinePalette.textDim),
+                ),
+                const SizedBox(height: 6),
                 Text(
                   '点搜索结果右侧的下载按钮即可保存到下载目录',
-                  style: TextStyle(
-                    fontSize: 12,
+                  textAlign: TextAlign.center,
+                  style: OnlineText.caption.copyWith(
                     color: OnlinePalette.textFaint,
                   ),
                 ),
@@ -117,7 +127,9 @@ class _DirectoryBar extends StatelessWidget {
                 onlineDownloader.directoryDisplay,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: OnlinePalette.textDim),
+                style: OnlineText.caption.copyWith(
+                  color: OnlinePalette.textDim,
+                ),
               ),
             ),
             TextButton(
@@ -177,12 +189,12 @@ class _EntryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final active = entry.state.isActive;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+        padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
         decoration: BoxDecoration(
           color: OnlinePalette.surfaceAlt,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(OnlineLayout.radiusRow),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,17 +207,16 @@ class _EntryRow extends StatelessWidget {
                     entry.fileName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13),
+                    style: OnlineText.body.copyWith(color: OnlinePalette.text),
                   ),
                 ),
                 const SizedBox(width: 8),
                 OnlineTag(text: entry.quality),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 // 结束的条目不需要暂停键，删除键已在下面一行。
                 if (active) _PauseButton(entry: entry),
               ],
             ),
-            const SizedBox(height: 6),
             Row(
               children: [
                 Expanded(
@@ -213,8 +224,7 @@ class _EntryRow extends StatelessWidget {
                     _stateText(entry),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
+                    style: OnlineText.caption.copyWith(
                       color: entry.state == OnlineDownloadState.failed
                           ? OnlinePalette.danger
                           : OnlinePalette.textFaint,
@@ -246,13 +256,17 @@ class _EntryRow extends StatelessWidget {
               ],
             ),
             if (active) ...[
-              const SizedBox(height: 6),
-              LinearProgressIndicator(
-                value: entry.progress <= 0 ? null : entry.progress,
-                minHeight: 3,
-                color: OnlinePalette.primaryLight,
-                backgroundColor: OnlinePalette.surface.withAlpha(120),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: entry.progress <= 0 ? null : entry.progress,
+                  minHeight: 3,
+                  color: OnlinePalette.primaryLight,
+                  backgroundColor: OnlinePalette.surface,
+                ),
               ),
+              const SizedBox(height: 4),
             ],
           ],
         ),

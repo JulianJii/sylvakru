@@ -5,6 +5,7 @@
 // 所以关掉页面播放照常继续，重新打开也不会丢封面和歌词。
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:material_ui/material_ui.dart';
@@ -162,26 +163,40 @@ class _OnlinePlayerDetailPageState extends State<OnlinePlayerDetailPage> {
                 listenable: currentSongNotifier,
                 builder: (context, _) {
                   final song = currentSongNotifier.value;
+                  final track = _track;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        _track == null ? '在线音乐' : getTitle(song),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              track == null ? '在线音乐' : getTitle(song),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: OnlineText.sectionTitle.copyWith(
+                                color: OnlinePalette.text,
+                              ),
+                            ),
+                          ),
+                          if (track != null) ...[
+                            const SizedBox(width: 8),
+                            OnlineTag(
+                              text:
+                                  onlineSearchers[track.source]?.label ??
+                                  track.source,
+                              color: OnlinePalette.primaryLight,
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _track == null ? '还没有在播放' : getArtist(song),
+                        track == null ? '还没有在播放' : getArtist(song),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
+                        style: OnlineText.caption.copyWith(
                           color: OnlinePalette.textFaint,
                         ),
                       ),
@@ -200,72 +215,90 @@ class _OnlinePlayerDetailPageState extends State<OnlinePlayerDetailPage> {
   // ------------------------------------------------------------------ 主体
 
   Widget _buildBody() {
-    final size = MediaQuery.sizeOf(context);
-    final wide = size.width > size.height;
-    final cover = _buildCover();
-    final lyrics = _buildLyrics();
+    final width = MediaQuery.sizeOf(context).width;
+    final gutter = OnlineLayout.gutter(width);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 分栏看宽度而不是横竖屏：只有真的宽到放得下两块才并排。
+        final wide = constraints.maxWidth >= 900;
+        final cover = _buildCover();
+        final lyrics = _buildLyrics();
 
-    if (wide) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(40, 8, 40, 8),
-        child: Row(
-          children: [
-            Expanded(child: cover),
-            const SizedBox(width: 40),
-            Expanded(child: lyrics),
-          ],
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 4),
-      child: Column(
-        children: [
-          Flexible(flex: 5, child: cover),
-          const SizedBox(height: 18),
-          Flexible(flex: 6, child: lyrics),
-        ],
-      ),
+        if (wide) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(gutter * 2, 8, gutter * 2, 8),
+            child: Row(
+              children: [
+                Expanded(child: cover),
+                const SizedBox(width: 32),
+                Expanded(child: lyrics),
+              ],
+            ),
+          );
+        }
+        return Padding(
+          padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 0),
+          child: Column(
+            children: [
+              Flexible(flex: 5, child: cover),
+              const SizedBox(height: 12),
+              Flexible(flex: 6, child: lyrics),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildCover() {
     final track = _track;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (track != null)
-          // 封面铺满做背景，模糊 + 压暗，撑住整页的色调。
-          ClipRect(
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-              child: Opacity(
-                opacity: 0.35,
-                child: OnlineCover(
-                  track: track,
-                  placeholder: const SizedBox.shrink(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 封面边长同时受宽度、可用高度和 420 上限约束：矮窗口下给歌词和
+        // 控件留出空间，宽窗口下也不会糊成一张满屏图。
+        final side = math
+            .min(
+              math.min(constraints.maxWidth, constraints.maxHeight * 0.96),
+              420.0,
+            )
+            .clamp(0.0, 420.0);
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            if (track != null)
+              // 封面铺满做背景，模糊 + 压暗，撑住整页的色调。
+              ClipRect(
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+                  child: Opacity(
+                    opacity: 0.35,
+                    child: OnlineCover(
+                      track: track,
+                      placeholder: const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              ),
+            Center(
+              child: SizedBox(
+                width: side,
+                height: side,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(
+                    OnlineLayout.radiusDialog,
+                  ),
+                  child: track == null
+                      ? _coverPlaceholder()
+                      : OnlineCover(
+                          track: track,
+                          placeholder: _coverPlaceholder(),
+                        ),
                 ),
               ),
             ),
-          ),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: track == null
-                    ? _coverPlaceholder()
-                    : OnlineCover(
-                        track: track,
-                        placeholder: _coverPlaceholder(),
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -310,52 +343,63 @@ class _OnlinePlayerDetailPageState extends State<OnlinePlayerDetailPage> {
 
   Widget _buildControls() {
     final song = currentSongNotifier.value;
+    final gutter = OnlineLayout.gutter(MediaQuery.sizeOf(context).width);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
-      child: Column(
-        children: [
-          const OnlineSeekBar(),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+      padding: EdgeInsets.fromLTRB(gutter, 8, gutter, 16),
+      child: Center(
+        child: ConstrainedBox(
+          // 进度条和按钮组限宽居中，超宽窗口下不会左右拉出一道长轨迹。
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
             children: [
-              IconButton(
-                tooltip: '上一首',
-                iconSize: 40,
-                onPressed: widget.onPrevious,
-                icon: const Icon(Icons.skip_previous_rounded),
-              ),
-              const SizedBox(width: 26),
-              ValueListenableBuilder<bool>(
-                valueListenable: isPlayingNotifier,
-                builder: (context, isPlaying, _) {
-                  return IconButton.filled(
-                    tooltip: isPlaying ? '暂停' : '播放',
-                    iconSize: 46,
-                    padding: const EdgeInsets.all(16),
-                    style: IconButton.styleFrom(
-                      backgroundColor: OnlinePalette.primary,
-                      foregroundColor: OnlinePalette.onPrimary,
-                    ),
-                    onPressed: song == null ? null : audioHandler.togglePlay,
-                    icon: Icon(
-                      isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 26),
-              IconButton(
-                tooltip: '下一首',
-                iconSize: 40,
-                onPressed: widget.onNext,
-                icon: const Icon(Icons.skip_next_rounded),
+              const OnlineSeekBar(),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    tooltip: '上一首',
+                    iconSize: 36,
+                    padding: const EdgeInsets.all(10),
+                    onPressed: widget.onPrevious,
+                    icon: const Icon(Icons.skip_previous_rounded),
+                  ),
+                  const SizedBox(width: 20),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: isPlayingNotifier,
+                    builder: (context, isPlaying, _) {
+                      return IconButton.filled(
+                        tooltip: isPlaying ? '暂停' : '播放',
+                        iconSize: 42,
+                        padding: const EdgeInsets.all(14),
+                        style: IconButton.styleFrom(
+                          backgroundColor: OnlinePalette.primary,
+                          foregroundColor: OnlinePalette.onPrimary,
+                        ),
+                        onPressed: song == null
+                            ? null
+                            : audioHandler.togglePlay,
+                        icon: Icon(
+                          isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 20),
+                  IconButton(
+                    tooltip: '下一首',
+                    iconSize: 36,
+                    padding: const EdgeInsets.all(10),
+                    onPressed: widget.onNext,
+                    icon: const Icon(Icons.skip_next_rounded),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -394,8 +438,7 @@ class _OnlineSeekBarState extends State<OnlineSeekBar> {
               children: [
                 Text(
                   _formatDuration(Duration(milliseconds: value.round())),
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: OnlineText.numeric.copyWith(
                     color: OnlinePalette.textFaint,
                   ),
                 ),
@@ -418,8 +461,7 @@ class _OnlineSeekBarState extends State<OnlineSeekBar> {
                 ),
                 Text(
                   _formatDuration(duration),
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: OnlineText.numeric.copyWith(
                     color: OnlinePalette.textFaint,
                   ),
                 ),
@@ -561,7 +603,7 @@ class _LyricRow extends StatelessWidget {
             line.start + const Duration(milliseconds: 1),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 200),
               textAlign: TextAlign.center,
@@ -570,7 +612,7 @@ class _LyricRow extends StatelessWidget {
                 fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
                 color: isCurrent
                     ? OnlinePalette.primaryLight
-                    : OnlinePalette.textDim.withAlpha(150),
+                    : OnlinePalette.textDim,
               ),
               child: Column(
                 children: [
@@ -578,8 +620,7 @@ class _LyricRow extends StatelessWidget {
                   for (final translate in line.translates)
                     Text(
                       translate,
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: OnlineText.caption.copyWith(
                         color: OnlinePalette.textFaint,
                       ),
                     ),

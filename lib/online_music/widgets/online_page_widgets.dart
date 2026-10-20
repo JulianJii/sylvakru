@@ -11,6 +11,8 @@ import 'package:sylvakru/online_music/online_music_api.dart';
 import 'package:sylvakru/online_music/theme/online_theme.dart';
 
 /// 小圆角标签。不给 [color] 时用次级前景色。
+///
+/// 只占单行：标签跟着行里剩余宽度走，宿主容器宽度不够时省略而不是撑破行。
 class OnlineTag extends StatelessWidget {
   const OnlineTag({required this.text, this.color, super.key});
 
@@ -21,18 +23,22 @@ class OnlineTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final foreground = color ?? OnlinePalette.textFaint;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: foreground.withAlpha(30),
-        borderRadius: BorderRadius.circular(6),
+        color: foreground.withAlpha(24),
+        borderRadius: BorderRadius.circular(OnlineLayout.radiusTag),
       ),
-      child: Text(text, style: TextStyle(fontSize: 11, color: foreground)),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: OnlineText.tag.copyWith(color: foreground),
+      ),
     );
   }
 }
 
-/// 音源单选下拉。样式与 [QualityMenu] 保持一致，选中即回调。
-/// [allowed] 之外的源不显示（脚本没声明的源搜到也播不了）。
+/// 音源单选下拉。[allowed] 之外的源不显示（脚本没声明的源搜到也播不了）。
 class SourceFilterSelect extends StatelessWidget {
   const SourceFilterSelect({
     required this.value,
@@ -47,15 +53,68 @@ class SourceFilterSelect extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = <String, String>{
-      for (final source in allowed)
-        source: onlineSearchers[source]?.label ?? source,
-    };
-    return PopupMenuButton<String>(
+    return _FilterMenu(
       tooltip: '音源',
-      initialValue: value,
+      icon: Icons.library_music_rounded,
+      value: value,
+      entries: {
+        for (final source in allowed)
+          source: onlineSearchers[source]?.label ?? source,
+      },
       onSelected: onChanged,
-      color: OnlinePalette.surfaceAlt,
+    );
+  }
+}
+
+class QualityMenu extends StatelessWidget {
+  const QualityMenu({
+    required this.valueListenable,
+    required this.onSelected,
+    super.key,
+  });
+
+  final ValueListenable<String> valueListenable;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: valueListenable,
+      builder: (context, quality, _) => _FilterMenu(
+        tooltip: '音质',
+        icon: Icons.high_quality_rounded,
+        value: quality,
+        entries: {for (final item in qualityOrder) item: item},
+        onSelected: onSelected,
+      ),
+    );
+  }
+}
+
+/// 音源 / 音质共用的下拉外观：图标 + 当前值 + 展开箭头，菜单里勾选当前项。
+///
+/// 两个入口只是数据不同，之前各抄了一份完全一样的样式，改一次要改两处。
+class _FilterMenu extends StatelessWidget {
+  const _FilterMenu({
+    required this.tooltip,
+    required this.icon,
+    required this.value,
+    required this.entries,
+    required this.onSelected,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final String value;
+  final Map<String, String> entries;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: tooltip,
+      initialValue: value,
+      onSelected: onSelected,
       itemBuilder: (context) => [
         for (final entry in entries.entries)
           PopupMenuItem<String>(
@@ -78,21 +137,20 @@ class SourceFilterSelect extends StatelessWidget {
           ),
       ],
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
           color: OnlinePalette.surfaceAlt,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(OnlineLayout.radiusRow),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.library_music_rounded,
-              size: 16,
-              color: OnlinePalette.textDim,
-            ),
+            Icon(icon, size: 16, color: OnlinePalette.textDim),
             const SizedBox(width: 6),
-            Text(entries[value] ?? value, style: const TextStyle(fontSize: 13)),
+            Text(
+              entries[value] ?? value,
+              style: OnlineText.body.copyWith(color: OnlinePalette.text),
+            ),
             Icon(
               Icons.expand_more_rounded,
               size: 16,
@@ -101,77 +159,6 @@ class SourceFilterSelect extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class QualityMenu extends StatelessWidget {
-  const QualityMenu({
-    required this.valueListenable,
-    required this.onSelected,
-    super.key,
-  });
-
-  final ValueListenable<String> valueListenable;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<String>(
-      valueListenable: valueListenable,
-      builder: (context, quality, _) {
-        return PopupMenuButton<String>(
-          tooltip: '音质',
-          initialValue: quality,
-          onSelected: onSelected,
-          color: OnlinePalette.surfaceAlt,
-          itemBuilder: (context) => [
-            for (final item in qualityOrder)
-              PopupMenuItem<String>(
-                value: item,
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      child: item == quality
-                          ? Icon(
-                              Icons.check_rounded,
-                              size: 16,
-                              color: OnlinePalette.primaryLight,
-                            )
-                          : null,
-                    ),
-                    Text(item),
-                  ],
-                ),
-              ),
-          ],
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: OnlinePalette.surfaceAlt,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.high_quality_rounded,
-                  size: 16,
-                  color: OnlinePalette.textDim,
-                ),
-                const SizedBox(width: 6),
-                Text(quality, style: const TextStyle(fontSize: 13)),
-                Icon(
-                  Icons.expand_more_rounded,
-                  size: 16,
-                  color: OnlinePalette.textDim,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -195,70 +182,89 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
-        child: searching
-            ? Column(
-                key: ValueKey('loading'),
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      color: OnlinePalette.primaryLight,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: searching
+              ? Column(
+                  key: ValueKey('loading'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: OnlinePalette.primaryLight,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    '正在搜索…',
-                    style: TextStyle(color: OnlinePalette.textFaint),
-                  ),
-                ],
-              )
-            : Column(
-                key: ValueKey(isPlaylist ? 'idle_playlist' : 'idle_song'),
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isPlaylist
-                        ? Icons.queue_music_rounded
-                        : Icons.travel_explore_rounded,
-                    size: 46,
-                    color: OnlinePalette.textFaint,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    isPlaylist ? '输入关键词搜索歌单' : '输入关键词开始搜索',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: OnlinePalette.textDim,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    isPlaylist
-                        ? '搜索结果来自$_sourceLabels的歌单，点击歌单可查看曲目并播放'
-                        : '搜索结果来自$_sourceLabels，播放直链由自定义源脚本解析',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: OnlinePalette.textFaint,
-                    ),
-                  ),
-                  if (hint != null) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16),
                     Text(
-                      hint!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: OnlinePalette.warn,
+                      '正在搜索…',
+                      style: OnlineText.body.copyWith(
+                        color: OnlinePalette.textFaint,
                       ),
                     ),
                   ],
-                ],
-              ),
+                )
+              : ConstrainedBox(
+                  key: ValueKey(isPlaylist ? 'idle_playlist' : 'idle_song'),
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: OnlinePalette.surfaceAlt,
+                          borderRadius: BorderRadius.circular(
+                            OnlineLayout.radiusCard,
+                          ),
+                        ),
+                        child: Icon(
+                          isPlaylist
+                              ? Icons.queue_music_rounded
+                              : Icons.travel_explore_rounded,
+                          size: 30,
+                          color: OnlinePalette.textFaint,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        isPlaylist ? '输入关键词搜索歌单' : '输入关键词开始搜索',
+                        textAlign: TextAlign.center,
+                        style: OnlineText.sectionTitle.copyWith(
+                          color: OnlinePalette.text,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isPlaylist
+                            ? '搜索结果来自$_sourceLabels的歌单，点击歌单可查看曲目并播放'
+                            : '搜索结果来自$_sourceLabels，播放直链由自定义源脚本解析',
+                        textAlign: TextAlign.center,
+                        style: OnlineText.caption.copyWith(
+                          color: OnlinePalette.textFaint,
+                          height: 1.5,
+                        ),
+                      ),
+                      if (hint != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          hint!,
+                          textAlign: TextAlign.center,
+                          style: OnlineText.caption.copyWith(
+                            color: OnlinePalette.warn,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+        ),
       ),
     );
   }
@@ -280,20 +286,20 @@ class ListFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!hasMore) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
+        padding: const EdgeInsets.symmetric(vertical: 20),
         child: Center(
           child: Text(
             '没有更多了',
-            style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+            style: OnlineText.caption.copyWith(color: OnlinePalette.textFaint),
           ),
         ),
       );
     }
     return InkWell(
       onTap: onLoadMore,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(OnlineLayout.radiusRow),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
+        padding: const EdgeInsets.symmetric(vertical: 20),
         child: Center(
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -309,7 +315,9 @@ class ListFooter extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 '正在加载更多…',
-                style: TextStyle(fontSize: 12, color: OnlinePalette.textFaint),
+                style: OnlineText.caption.copyWith(
+                  color: OnlinePalette.textFaint,
+                ),
               ),
             ],
           ),
@@ -333,39 +341,49 @@ class HistoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      hoverColor: OnlinePalette.surfaceAlt,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: OnlinePalette.surface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: OnlinePalette.surfaceAlt),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, color: OnlinePalette.textDim),
-            ),
-            const SizedBox(width: 4),
-            InkWell(
-              onTap: onDelete,
-              borderRadius: BorderRadius.circular(10),
-              hoverColor: OnlinePalette.text.withAlpha(20),
-              child: Padding(
-                padding: const EdgeInsets.all(2),
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 13,
-                  color: OnlinePalette.textFaint,
+    // 同样把 InkWell 放进透明 Material 里：底色画在外层 Container 上，
+    // 水波纹/悬停色画在它上面，否则会被不透明底色整块盖住。
+    return Container(
+      decoration: BoxDecoration(
+        color: OnlinePalette.card,
+        borderRadius: BorderRadius.circular(OnlineLayout.radiusRow),
+        border: Border.all(color: OnlinePalette.cardBorder),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(OnlineLayout.radiusRow),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          hoverColor: OnlinePalette.hover,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: OnlineText.caption.copyWith(
+                    color: OnlinePalette.textDim,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 2),
+                InkWell(
+                  onTap: onDelete,
+                  borderRadius: BorderRadius.circular(8),
+                  hoverColor: OnlinePalette.text.withAlpha(24),
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 13,
+                      color: OnlinePalette.textFaint,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -391,9 +409,10 @@ class TypeOption extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
+      hoverColor: OnlinePalette.hover,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? OnlinePalette.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -411,9 +430,8 @@ class TypeOption extends StatelessWidget {
             const SizedBox(width: 5),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+              style: OnlineText.body.copyWith(
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 color: selected
                     ? OnlinePalette.onPrimary
                     : OnlinePalette.textDim,
@@ -442,132 +460,159 @@ class PlaylistRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 420;
-        return InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          hoverColor: OnlinePalette.surfaceAlt,
-          child: Container(
-            padding: EdgeInsets.fromLTRB(compact ? 12 : 18, 10, 16, 10),
-            decoration: BoxDecoration(
-              color: OnlinePalette.surface.withAlpha(80),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: OnlinePalette.surfaceAlt.withAlpha(80)),
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 28,
-                  child: Text(
-                    '$index',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: OnlinePalette.textFaint,
-                    ),
-                  ),
+        // 窄（手机单列）只留名称和作者；中/宽再补上播放量与音源标签。
+        final width = constraints.maxWidth;
+        final compact = width < 460;
+        final roomy = width >= 480;
+        return Container(
+          decoration: BoxDecoration(
+            color: OnlinePalette.card,
+            borderRadius: BorderRadius.circular(OnlineLayout.radiusRow),
+            border: Border.all(color: OnlinePalette.cardBorder),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(OnlineLayout.radiusRow),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              hoverColor: OnlinePalette.hover,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 10 : 14,
+                  10,
+                  compact ? 8 : 14,
+                  10,
                 ),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: playlist.pic.isNotEmpty
-                        ? Image.network(
-                            playlist.pic,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                              color: OnlinePalette.surfaceAlt,
-                              child: Icon(
-                                Icons.queue_music_rounded,
-                                color: OnlinePalette.textFaint,
-                              ),
-                            ),
-                          )
-                        : Container(
-                            color: OnlinePalette.surfaceAlt,
-                            child: Icon(
-                              Icons.queue_music_rounded,
-                              color: OnlinePalette.textFaint,
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        playlist.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: OnlinePalette.text,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      child: Text(
+                        '$index',
+                        style: OnlineText.caption.copyWith(
+                          color: OnlinePalette.textFaint,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
+                    ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 52,
+                        height: 52,
+                        child: playlist.pic.isNotEmpty
+                            ? Image.network(
+                                playlist.pic,
+                                fit: BoxFit.cover,
+                                frameBuilder: fadeInFrame,
+                                errorBuilder: (_, _, _) =>
+                                    _playlistCoverPlaceholder(),
+                              )
+                            : _playlistCoverPlaceholder(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Flexible(
-                            child: Text(
-                              playlist.creator.isEmpty
-                                  ? '未知作者'
-                                  : playlist.creator,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: OnlinePalette.textFaint,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           Text(
-                            playlist.songCountFormatted,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: OnlinePalette.textFaint,
+                            playlist.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: OnlineText.title.copyWith(
+                              color: OnlinePalette.text,
                             ),
                           ),
-                          if (!compact &&
-                              playlist.playCountFormatted.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Text(
-                              playlist.playCountFormatted,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: OnlinePalette.textFaint,
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  playlist.creator.isEmpty
+                                      ? '未知作者'
+                                      : playlist.creator,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: OnlineText.caption.copyWith(
+                                    color: OnlinePalette.textFaint,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Text(
+                                playlist.songCountFormatted,
+                                style: OnlineText.caption.copyWith(
+                                  color: OnlinePalette.textFaint,
+                                ),
+                              ),
+                              if (roomy &&
+                                  playlist.playCountFormatted.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  playlist.playCountFormatted,
+                                  style: OnlineText.caption.copyWith(
+                                    color: OnlinePalette.textFaint,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(width: 10),
+                      OnlineTag(
+                        text:
+                            onlineSearchers[playlist.source]?.label ??
+                            playlist.source,
+                        color: OnlinePalette.primaryLight,
+                      ),
+                      const SizedBox(width: 6),
                     ],
-                  ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: OnlinePalette.textFaint,
+                      size: 18,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                OnlineTag(
-                  text:
-                      onlineSearchers[playlist.source]?.label ??
-                      playlist.source,
-                  color: OnlinePalette.primaryLight,
-                ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: OnlinePalette.textFaint,
-                  size: 18,
-                ),
-              ],
+              ),
             ),
           ),
         );
       },
     );
   }
+
+  Widget _playlistCoverPlaceholder() {
+    return Container(
+      color: OnlinePalette.surfaceAlt,
+      child: Icon(
+        Icons.queue_music_rounded,
+        size: 22,
+        color: OnlinePalette.textFaint,
+      ),
+    );
+  }
+}
+
+/// 网络图片的淡入 builder：占位图直接换成图片会"啪"地一下，这里补 200ms 过渡。
+Widget fadeInFrame(
+  BuildContext context,
+  Widget child,
+  int? frame,
+  bool wasSynchronouslyLoaded,
+) {
+  if (wasSynchronouslyLoaded) return child;
+  return AnimatedOpacity(
+    opacity: frame == null ? 0 : 1,
+    duration: const Duration(milliseconds: 200),
+    curve: Curves.easeOut,
+    child: child,
+  );
 }
 
 /// 在线曲目封面。搜索结果里酷我不带封面、咪咕也可能缺，所以这里按 lx-music
@@ -626,6 +671,7 @@ class _OnlineCoverState extends State<OnlineCover> {
     return Image.network(
       url,
       fit: widget.fit,
+      frameBuilder: fadeInFrame,
       errorBuilder: (_, _, _) => widget.placeholder ?? const SizedBox.shrink(),
     );
   }
@@ -655,134 +701,156 @@ class TrackRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 420;
-        return InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          hoverColor: OnlinePalette.surfaceAlt,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            padding: EdgeInsets.fromLTRB(compact ? 12 : 18, 10, 16, 10),
-            decoration: BoxDecoration(
+        // 三档：窄（手机单列）只留歌名/歌手，中档补音质，宽档再补音源。
+        final width = constraints.maxWidth;
+        final compact = width < 460;
+        final roomy = width >= 480;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            color: isCurrent ? OnlinePalette.selected : OnlinePalette.card,
+            borderRadius: BorderRadius.circular(OnlineLayout.radiusRow),
+            border: Border.all(
               color: isCurrent
-                  ? OnlinePalette.primary.withAlpha(30)
-                  : OnlinePalette.surface.withAlpha(80),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isCurrent
-                    ? OnlinePalette.primary.withAlpha(120)
-                    : OnlinePalette.surfaceAlt.withAlpha(80),
-              ),
+                  ? OnlinePalette.selectedBorder
+                  : OnlinePalette.cardBorder,
             ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 32,
-                  child: isResolving
-                      // Center 给宽松约束：否则外层 SizedBox(32) 的紧宽度会把
-                      // 转圈压成 32x16 的扁圆。
-                      ? Center(
-                          child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: OnlinePalette.primaryLight,
+          ),
+          // 悬停/水波纹画在这层透明 Material 上：外层 AnimatedContainer 的
+          // 底色是不透明的，直接套 InkWell 会被它整块盖住，hover 根本看不见。
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(OnlineLayout.radiusRow),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              hoverColor: OnlinePalette.hover,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 10 : 14,
+                  8,
+                  compact ? 6 : 10,
+                  8,
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(width: 26, child: _buildLeading()),
+                    const SizedBox(width: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: OnlineCover(
+                          track: track,
+                          placeholder: Container(
+                            color: OnlinePalette.surfaceAlt,
+                            child: Icon(
+                              Icons.music_note_rounded,
+                              size: 18,
+                              color: OnlinePalette.textFaint,
                             ),
                           ),
-                        )
-                      : isCurrent
-                      ? Icon(
-                          Icons.equalizer_rounded,
-                          size: 18,
-                          color: OnlinePalette.primaryLight,
-                        )
-                      : Text(
-                          '$index',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: OnlinePalette.textFaint,
-                          ),
                         ),
-                ),
-                const SizedBox(width: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: OnlineCover(
-                      track: track,
-                      placeholder: Container(
-                        color: OnlinePalette.surfaceAlt,
-                        child: Icon(
-                          Icons.music_note_rounded,
-                          size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            track.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: OnlineText.title.copyWith(
+                              fontWeight: isCurrent
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: isCurrent
+                                  ? OnlinePalette.primaryLight
+                                  : OnlinePalette.text,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            compact
+                                ? track.singer
+                                : '${track.singer} · ${track.albumName}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: OnlineText.caption.copyWith(
+                              color: OnlinePalette.textFaint,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(width: 8),
+                      OnlineTag(
+                        text: qualityLabel,
+                        color: OnlinePalette.textFaint,
+                      ),
+                      if (roomy) ...[
+                        const SizedBox(width: 6),
+                        OnlineTag(
+                          text:
+                              onlineSearchers[track.source]?.label ??
+                              track.source,
+                          color: OnlinePalette.primaryLight,
+                        ),
+                      ],
+                    ],
+                    const SizedBox(width: 10),
+                    // 固定宽度 + 等宽数字：行与行的时长竖着对齐。
+                    SizedBox(
+                      width: 40,
+                      child: Text(
+                        track.interval,
+                        textAlign: TextAlign.right,
+                        style: OnlineText.numeric.copyWith(
                           color: OnlinePalette.textFaint,
                         ),
                       ),
                     ),
-                  ),
+                    DownloadButton(track: track, onDownload: onDownload),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        track.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: isCurrent
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: isCurrent
-                              ? OnlinePalette.primaryLight
-                              : OnlinePalette.text,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        compact
-                            ? track.singer
-                            : '${track.singer} · ${track.albumName}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: OnlinePalette.textFaint,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!compact) ...[
-                  const SizedBox(width: 8),
-                  OnlineTag(text: qualityLabel, color: OnlinePalette.textFaint),
-                  const SizedBox(width: 6),
-                  OnlineTag(
-                    text: onlineSearchers[track.source]?.label ?? track.source,
-                    color: OnlinePalette.primaryLight,
-                  ),
-                ],
-                const SizedBox(width: 10),
-                Text(
-                  track.interval,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: OnlinePalette.textFaint,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                DownloadButton(track: track, onDownload: onDownload),
-              ],
+              ),
             ),
           ),
         );
       },
+    );
+  }
+
+  /// 行首：解析中转圈，当前播放显示音律图标，其余显示序号。
+  Widget _buildLeading() {
+    if (isResolving) {
+      // Center 给宽松约束：否则外层 SizedBox 的紧宽度会把转圈压成扁圆。
+      return Center(
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: OnlinePalette.primaryLight,
+          ),
+        ),
+      );
+    }
+    if (isCurrent) {
+      return Icon(
+        Icons.equalizer_rounded,
+        size: 18,
+        color: OnlinePalette.primaryLight,
+      );
+    }
+    return Text(
+      '$index',
+      style: OnlineText.caption.copyWith(color: OnlinePalette.textFaint),
     );
   }
 }
@@ -811,7 +879,7 @@ class DownloadButton extends StatelessWidget {
           tooltip: '下载到下载目录',
           iconSize: 18,
           visualDensity: VisualDensity.compact,
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(8),
           constraints: const BoxConstraints(),
           onPressed: active ? null : onDownload,
           icon: done

@@ -145,8 +145,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         : 620.0;
 
     return Dialog(
-      backgroundColor: OnlinePalette.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      // 底色 / 圆角 / 标题字号由 buildOnlineTheme 统一给出。
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: width,
@@ -154,22 +153,20 @@ class _SettingsDialogState extends State<SettingsDialog> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 14, 12, 14),
+              padding: const EdgeInsets.fromLTRB(24, 12, 12, 12),
               child: Row(
                 children: [
-                  const Text(
-                    '设置',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
+                  const Text('设置', style: OnlineText.dialogTitle),
                   const Spacer(),
                   IconButton(
+                    tooltip: '关闭',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
                 ],
               ),
             ),
-            Divider(height: 1, color: OnlinePalette.surfaceAlt),
+            Divider(height: 1, color: OnlinePalette.cardBorder),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -242,7 +239,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                       ),
                       VerticalDivider(
                         width: 1,
-                        color: OnlinePalette.surfaceAlt,
+                        color: OnlinePalette.cardBorder,
                       ),
                       content,
                     ],
@@ -738,7 +735,6 @@ class _ScriptUrlDialogState extends State<ScriptUrlDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: OnlinePalette.surface,
       title: const Text('导入自定义源脚本'),
       content: TextField(
         controller: _controller,
