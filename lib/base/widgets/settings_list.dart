@@ -139,9 +139,7 @@ class _SettingsListState extends State<SettingsList> {
           sliverBox(paddingIfNeed(isLandscape, vibrationListTile(l10n))),
 
         if (isMobile && !isTV)
-          sliverBox(
-            paddingIfNeed(isLandscape, mixWithOtherAppsListTile(l10n)),
-          ),
+          sliverBox(paddingIfNeed(isLandscape, mixWithOtherAppsListTile(l10n))),
 
         if (isMobile && !isTV)
           sliverBox(paddingIfNeed(isLandscape, autoRotateListTile(l10n))),
@@ -936,7 +934,7 @@ class _SettingsListState extends State<SettingsList> {
       title: Text(l10n.checkUpdate),
       onTap: () async {
         final url = Uri.parse(
-          'https://api.github.com/repos/jessejii/sylvakru/releases/latest',
+          'https://api.github.com/repos/JulianJii/sylvakru/releases/latest',
         );
 
         try {
@@ -1007,7 +1005,7 @@ class _SettingsListState extends State<SettingsList> {
                                 ElevatedButton(
                                   onPressed: () => launchUrl(
                                     Uri.parse(
-                                      "https://github.com/jessejii/sylvakru/releases/latest",
+                                      "https://github.com/JulianJii/sylvakru/releases/latest",
                                     ),
                                   ),
                                   style: ElevatedButton.styleFrom(
