@@ -954,6 +954,8 @@ class PlayOrderButton extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: playModeNotifier,
       builder: (context, mode, _) {
+        // 0/1/2 之外的脏值当列表循环处理，别让取图标时越界。
+        final index = mode == 1 ? 1 : (mode == 2 ? 2 : 0);
         late MenuController menuController;
         return MenuAnchor(
           style: MenuStyle(
@@ -982,7 +984,7 @@ class PlayOrderButton extends StatelessWidget {
                   controller.open();
                 }
               },
-              icon: Icon(_icons[mode.clamp(0, 2)]),
+              icon: Icon(_icons[index]),
             );
           },
           menuChildren: [
@@ -997,7 +999,7 @@ class PlayOrderButton extends StatelessWidget {
                     _labels[i],
                     style: TextStyle(color: OnlinePalette.text),
                   ),
-                  trailing: mode == i
+                  trailing: index == i
                       ? Icon(Icons.check_rounded, color: OnlinePalette.primary)
                       : null,
                   onTap: () {
