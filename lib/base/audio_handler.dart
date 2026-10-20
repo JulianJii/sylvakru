@@ -46,6 +46,10 @@ late MyAudioHandler audioHandler;
 List<MyAudioMetadata> playQueue = [];
 String? playQueueForStreamId;
 
+/// 换曲接管者（在线音乐用）：它的队列只放当前一首、直链按需解析，
+/// 默认的 `skipToNext()` 取模只会在原地打转。返回 true 表示已接手。
+Future<bool> Function(int delta)? playQueueSkipHandler;
+
 final ValueNotifier<MyAudioMetadata?> currentSongNotifier = ValueNotifier(null);
 final isPlayingNotifier = ValueNotifier(false);
 final playModeNotifier = ValueNotifier(0);
@@ -566,8 +570,10 @@ class MyAudioHandler extends BaseAudioHandler {
       playModeNotifier.value = playMode;
     }
     playQueue = List.from(source);
-    if (playModeNotifier.value == 1 ||
-        (playModeNotifier.value == 2 && audioHandler._tmpPlayMode == 1)) {
+    // 单首队列（在线点播）打乱没有意义，还会把 _playQueueTmp 污染成在线曲目。
+    if (source.length > 1 &&
+        (playModeNotifier.value == 1 ||
+            (playModeNotifier.value == 2 && audioHandler._tmpPlayMode == 1))) {
       shuffle();
     }
     await audioHandler.load();
@@ -906,6 +912,7 @@ class MyAudioHandler extends BaseAudioHandler {
   @override
   Future<void> skipToNext() async {
     if (playQueue.isEmpty) return;
+    if (await (playQueueSkipHandler?.call(1) ?? false)) return;
 
     currentIndex = (currentIndex + 1) % playQueue.length;
     await load();
@@ -914,6 +921,7 @@ class MyAudioHandler extends BaseAudioHandler {
   @override
   Future<void> skipToPrevious() async {
     if (playQueue.isEmpty) return;
+    if (await (playQueueSkipHandler?.call(-1) ?? false)) return;
 
     currentIndex = (currentIndex + playQueue.length - 1) % playQueue.length;
     await load();

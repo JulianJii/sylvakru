@@ -15,8 +15,10 @@ import 'package:sylvakru/base/services/lyric.dart';
 import 'package:sylvakru/base/services/logger.dart';
 import 'package:sylvakru/base/utils/media_query.dart';
 import 'package:sylvakru/base/utils/metadata_utils.dart';
+import 'package:sylvakru/base/widgets/buttons.dart';
 import 'package:sylvakru/online_music/online_download.dart';
 import 'package:sylvakru/online_music/online_music_api.dart';
+import 'package:sylvakru/online_music/online_play_order.dart';
 import 'package:sylvakru/online_music/online_player_detail.dart';
 import 'package:sylvakru/online_music/online_search_controller.dart';
 import 'package:sylvakru/online_music/online_search_history.dart';
@@ -62,6 +64,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
 
   @override
   void dispose() {
+    // 页面走了就不再接管换曲，回到播放器自己的队列逻辑。
+    playQueueSkipHandler = null;
     _controller.dispose();
     // 页面走了就别把通知留在上一层界面上。
     dismissOnlineNotice();
@@ -119,6 +123,30 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       _currentResultIndex >= 0 &&
       _currentResultIndex < _activeTracks.length - 1;
 
+  /// 播完 / 通知栏切歌：按当前播放模式在活跃列表里换一首。
+  /// 返回 false 时交回默认逻辑（当前曲不在列表里或列表为空）。
+  Future<bool> _skipInActiveList(int delta) async {
+    final tracks = _activeTracks;
+    final idx = _currentResultIndex;
+    if (idx < 0 || tracks.isEmpty) return false;
+    final next = onlineNextIndex(
+      idx,
+      tracks.length,
+      playModeNotifier.value,
+      delta,
+    );
+    await _play(tracks[next]);
+    return true;
+  }
+
+  /// 在线页只改播放模式，不动全局队列：`changePlayMode` 会洗牌 / 还原
+  /// 本地队列，而这个队列里只有当前这首在线曲目。
+  void _changePlayMode(int mode) {
+    if (mode == playModeNotifier.value) return;
+    playModeNotifier.value = mode;
+    audioHandler.savePlayState();
+  }
+
   Future<void> _play(OnlineTrack track) async {
     if (_resolvingId != null) return;
     final quality = _controller.qualityFor(track);
@@ -148,8 +176,17 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
         ..color = Colors.grey;
 
       // 始终以单首曲目覆盖播放队列：上一首/下一首由界面按当前活跃列表
-      // 自行计算（见 [_playRelative]），而不是依赖全局 playQueue 的累积顺序。
-      await audioHandler.setPlayQueue([metadata], 0);
+      // 自行计算（见 [_playRelative] / [_skipInActiveList]），而不是依赖全局
+      // playQueue 的累积顺序。targetIndex 用来避开 setPlayQueue 把播放模式
+      // 重置成列表循环。
+      await audioHandler.setPlayQueue(
+        [metadata],
+        playModeNotifier.value,
+        targetIndex: 0,
+      );
+      // 播完的自动换曲交给 [_skipInActiveList]：单曲队列里 skipToNext
+      // 取模只会原地打转。
+      playQueueSkipHandler = _skipInActiveList;
       // 播放条和详情页靠它拿封面 / 歌词，元数据里只存了歌名歌手。
       onlineNowPlaying.value = track;
       logger.output('[online] play ${track.source} ${track.name} @$quality');
@@ -851,6 +888,12 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
               // 中间：进度条（与详情页共用一个组件）。
               const Expanded(flex: 2, child: OnlineSeekBar()),
               const SizedBox(width: 16),
+              // 播放顺序：与本地音乐同一套设置，只是不改全局队列。
+              playModeButton(
+                controlIconSize,
+                iconColor: OnlinePalette.textDim,
+                onModeChange: _changePlayMode,
+              ),
               // 右侧：上一首 / 播放 / 下一首。
               IconButton(
                 tooltip: '上一首',

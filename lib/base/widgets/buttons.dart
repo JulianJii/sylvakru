@@ -11,7 +11,13 @@ import 'package:sylvakru/l10n/generated/app_localizations.dart';
 import 'package:sylvakru/landscape_view/pages/play_queue_page.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 
-Widget playModeButton(double? size, {Color? iconColor}) {
+Widget playModeButton(
+  double? size, {
+  Color? iconColor,
+  void Function(int)? onModeChange,
+}) {
+  // 在线音乐传自己的实现：它的队列只有一首，不能走 changePlayMode 的洗牌/还原。
+  final changeMode = onModeChange ?? audioHandler.changePlayMode;
   return ValueListenableBuilder(
     valueListenable: playModeNotifier,
     builder: (context, playMode, _) {
@@ -55,7 +61,7 @@ Widget playModeButton(double? size, {Color? iconColor}) {
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            audioHandler.changePlayMode(0);
+                            changeMode(0);
                           },
                           trailing: playModeNotifier.value == 0
                               ? Icon(Icons.check, color: iconColor)
@@ -70,7 +76,7 @@ Widget playModeButton(double? size, {Color? iconColor}) {
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            audioHandler.changePlayMode(1);
+                            changeMode(1);
                           },
                           trailing: playModeNotifier.value == 1
                               ? Icon(Icons.check, color: iconColor)
@@ -85,7 +91,7 @@ Widget playModeButton(double? size, {Color? iconColor}) {
                           ),
                           onTap: () {
                             Navigator.pop(context);
-                            audioHandler.changePlayMode(2);
+                            changeMode(2);
                           },
                           trailing: playModeNotifier.value == 2
                               ? Icon(Icons.check, color: iconColor)
