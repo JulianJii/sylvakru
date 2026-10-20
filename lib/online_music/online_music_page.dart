@@ -17,7 +17,6 @@ import 'package:sylvakru/base/services/lyric.dart';
 import 'package:sylvakru/base/services/logger.dart';
 import 'package:sylvakru/base/utils/media_query.dart';
 import 'package:sylvakru/base/utils/metadata_utils.dart';
-import 'package:sylvakru/base/widgets/buttons.dart';
 import 'package:sylvakru/online_music/online_cache.dart';
 import 'package:sylvakru/online_music/online_download.dart';
 import 'package:sylvakru/online_music/online_music_api.dart';
@@ -101,8 +100,9 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
       _controller.searchType == OnlineSearchType.playlist &&
       _controller.selectedPlaylist != null;
 
-  List<OnlineTrack> get _activeTracks =>
-      _isViewingPlaylistTracks ? _controller.playlistTracks : _controller.results;
+  List<OnlineTrack> get _activeTracks => _isViewingPlaylistTracks
+      ? _controller.playlistTracks
+      : _controller.results;
 
   /// 当前正在播放的曲目在活跃列表里的下标；不在列表里时返回 -1。
   int get _currentResultIndex {
@@ -895,9 +895,8 @@ class _OnlineMusicPageState extends State<OnlineMusicPage> {
               const Expanded(flex: 2, child: OnlineSeekBar()),
               const SizedBox(width: 16),
               // 播放顺序：与本地音乐同一套设置，只是不改全局队列。
-              playModeButton(
-                controlIconSize,
-                iconColor: OnlinePalette.textDim,
+              PlayOrderButton(
+                iconSize: controlIconSize,
                 onModeChange: _changePlayMode,
               ),
               // 右侧：上一首 / 播放 / 下一首。

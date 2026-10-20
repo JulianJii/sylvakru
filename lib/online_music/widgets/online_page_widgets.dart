@@ -267,7 +267,11 @@ class EmptyState extends StatelessWidget {
 /// 列表末尾的页脚：还有下一页就挂载时的转圈（点一下可以手动再拉一次），
 /// 翻到底了就一行"没有更多了"。
 class ListFooter extends StatelessWidget {
-  const ListFooter({required this.hasMore, required this.onLoadMore, super.key});
+  const ListFooter({
+    required this.hasMore,
+    required this.onLoadMore,
+    super.key,
+  });
 
   final bool hasMore;
   final VoidCallback onLoadMore;
@@ -921,5 +925,90 @@ class VolumeButton extends StatelessWidget {
     if (volume <= 0) return Icons.volume_off_rounded;
     if (volume < 0.5) return Icons.volume_down_rounded;
     return Icons.volume_up_rounded;
+  }
+}
+
+/// 播放顺序按钮：点开后用 [MenuAnchor] 在图标右上角弹一个小菜单。
+///
+/// 和本地音乐的 `playModeButton` 不同，这里只改 [playModeNotifier]，
+/// 由页面决定要不要动全局队列（在线队列里只有当前一首）。
+class PlayOrderButton extends StatelessWidget {
+  const PlayOrderButton({
+    super.key,
+    required this.iconSize,
+    required this.onModeChange,
+  });
+
+  final double iconSize;
+  final void Function(int) onModeChange;
+
+  static const _labels = ['列表循环', '随机播放', '单曲循环'];
+  static const _icons = [
+    Icons.repeat_rounded,
+    Icons.shuffle_rounded,
+    Icons.repeat_one_rounded,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: playModeNotifier,
+      builder: (context, mode, _) {
+        late MenuController menuController;
+        return MenuAnchor(
+          style: MenuStyle(
+            // 贴图标右上角弹；底栏放不下时 MenuAnchor 自己翻到上方。
+            alignment: Alignment.topRight,
+            backgroundColor: WidgetStatePropertyAll(OnlinePalette.surfaceAlt),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(vertical: 6),
+            ),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            elevation: const WidgetStatePropertyAll(6),
+          ),
+          builder: (context, controller, child) {
+            menuController = controller;
+            return IconButton(
+              tooltip: '播放顺序',
+              color: OnlinePalette.textDim,
+              iconSize: iconSize,
+              onPressed: () {
+                if (playQueue.isEmpty) return;
+                if (controller.isOpen) {
+                  controller.close();
+                } else {
+                  controller.open();
+                }
+              },
+              icon: Icon(_icons[mode.clamp(0, 2)]),
+            );
+          },
+          menuChildren: [
+            for (var i = 0; i < 3; i++)
+              SizedBox(
+                width: 160,
+                child: ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  leading: Icon(_icons[i], color: OnlinePalette.textDim),
+                  title: Text(
+                    _labels[i],
+                    style: TextStyle(color: OnlinePalette.text),
+                  ),
+                  trailing: mode == i
+                      ? Icon(Icons.check_rounded, color: OnlinePalette.primary)
+                      : null,
+                  onTap: () {
+                    menuController.close();
+                    onModeChange(i);
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 }
