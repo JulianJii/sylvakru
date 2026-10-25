@@ -182,6 +182,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchLicenses => '搜索许可证';
 
   @override
+  String get searchHome => '搜索专辑/歌曲/歌单';
+
+  @override
   String get ascending => '升序';
 
   @override

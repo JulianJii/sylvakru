@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 
-const String versionNumber = '4.4.1';
+const String versionNumber = '4.5.1';
 
 late final Directory appDocsDir;
 late final Directory appSupportDir;

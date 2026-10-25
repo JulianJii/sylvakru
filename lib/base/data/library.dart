@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:sylvakru/base/app.dart';
 import 'package:sylvakru/base/data/database.dart';
 import 'package:sylvakru/base/extensions/metadata_extension.dart';
+import 'package:sylvakru/base/services/background_task_service.dart';
 import 'package:sylvakru/base/services/logger.dart';
 import 'package:sylvakru/base/services/picture_load_scheduler.dart';
 import 'package:sylvakru/base/services/picture_service.dart';
@@ -198,6 +199,9 @@ class Library {
     }
     final savePath = "${song.cachePath!}.part";
     _downloadingCachePaths.add(savePath);
+    // iOS only: request background execution time so the download is not
+    // suspended halfway when the app is backgrounded.
+    final backgroundTask = await BackgroundTaskService.begin();
     try {
       late bool success;
       // delay download to prevent it from running at the same time as audio loading
@@ -225,6 +229,7 @@ class Library {
       }
     } finally {
       _downloadingCachePaths.remove(savePath);
+      await BackgroundTaskService.end(backgroundTask);
     }
   }
 

@@ -41,6 +41,15 @@ class $MetadataItemsTable extends MetadataItems
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _pathMeta = const VerificationMeta('path');
+  @override
+  late final GeneratedColumn<String> path = GeneratedColumn<String>(
+    'path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _modifiedMeta = const VerificationMeta(
     'modified',
   );
@@ -217,6 +226,7 @@ class $MetadataItemsTable extends MetadataItems
     id,
     coverId,
     orderIndex,
+    path,
     modified,
     format,
     title,
@@ -262,6 +272,12 @@ class $MetadataItemsTable extends MetadataItems
       context.handle(
         _orderIndexMeta,
         orderIndex.isAcceptableOrUnknown(data['order_index']!, _orderIndexMeta),
+      );
+    }
+    if (data.containsKey('path')) {
+      context.handle(
+        _pathMeta,
+        path.isAcceptableOrUnknown(data['path']!, _pathMeta),
       );
     }
     if (data.containsKey('modified')) {
@@ -393,6 +409,10 @@ class $MetadataItemsTable extends MetadataItems
         DriftSqlType.int,
         data['${effectivePrefix}order_index'],
       )!,
+      path: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}path'],
+      ),
       modified: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}modified'],
@@ -478,6 +498,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
   /// rowid 隐式保存的，重排因此必须重写每一行。显式存下来之后，
   /// 重排只需要更新下标发生平移的那一段。
   final int orderIndex;
+  final String? path;
   final int? modified;
   final String? format;
   final String? title;
@@ -499,6 +520,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
     required this.id,
     this.coverId,
     required this.orderIndex,
+    this.path,
     this.modified,
     this.format,
     this.title,
@@ -525,6 +547,9 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
       map['cover_id'] = Variable<String>(coverId);
     }
     map['order_index'] = Variable<int>(orderIndex);
+    if (!nullToAbsent || path != null) {
+      map['path'] = Variable<String>(path);
+    }
     if (!nullToAbsent || modified != null) {
       map['modified'] = Variable<int>(modified);
     }
@@ -582,6 +607,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
           ? const Value.absent()
           : Value(coverId),
       orderIndex: Value(orderIndex),
+      path: path == null && nullToAbsent ? const Value.absent() : Value(path),
       modified: modified == null && nullToAbsent
           ? const Value.absent()
           : Value(modified),
@@ -637,6 +663,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
       id: serializer.fromJson<String>(json['id']),
       coverId: serializer.fromJson<String?>(json['coverId']),
       orderIndex: serializer.fromJson<int>(json['orderIndex']),
+      path: serializer.fromJson<String?>(json['path']),
       modified: serializer.fromJson<int?>(json['modified']),
       format: serializer.fromJson<String?>(json['format']),
       title: serializer.fromJson<String?>(json['title']),
@@ -663,6 +690,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
       'id': serializer.toJson<String>(id),
       'coverId': serializer.toJson<String?>(coverId),
       'orderIndex': serializer.toJson<int>(orderIndex),
+      'path': serializer.toJson<String?>(path),
       'modified': serializer.toJson<int?>(modified),
       'format': serializer.toJson<String?>(format),
       'title': serializer.toJson<String?>(title),
@@ -687,6 +715,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
     String? id,
     Value<String?> coverId = const Value.absent(),
     int? orderIndex,
+    Value<String?> path = const Value.absent(),
     Value<int?> modified = const Value.absent(),
     Value<String?> format = const Value.absent(),
     Value<String?> title = const Value.absent(),
@@ -708,6 +737,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
     id: id ?? this.id,
     coverId: coverId.present ? coverId.value : this.coverId,
     orderIndex: orderIndex ?? this.orderIndex,
+    path: path.present ? path.value : this.path,
     modified: modified.present ? modified.value : this.modified,
     format: format.present ? format.value : this.format,
     title: title.present ? title.value : this.title,
@@ -733,6 +763,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
       orderIndex: data.orderIndex.present
           ? data.orderIndex.value
           : this.orderIndex,
+      path: data.path.present ? data.path.value : this.path,
       modified: data.modified.present ? data.modified.value : this.modified,
       format: data.format.present ? data.format.value : this.format,
       title: data.title.present ? data.title.value : this.title,
@@ -767,6 +798,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
           ..write('id: $id, ')
           ..write('coverId: $coverId, ')
           ..write('orderIndex: $orderIndex, ')
+          ..write('path: $path, ')
           ..write('modified: $modified, ')
           ..write('format: $format, ')
           ..write('title: $title, ')
@@ -789,10 +821,11 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     coverId,
     orderIndex,
+    path,
     modified,
     format,
     title,
@@ -810,7 +843,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
     playCount,
     lastPlayed,
     lyricsTimeOffset,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -818,6 +851,7 @@ class MetadataItem extends DataClass implements Insertable<MetadataItem> {
           other.id == this.id &&
           other.coverId == this.coverId &&
           other.orderIndex == this.orderIndex &&
+          other.path == this.path &&
           other.modified == this.modified &&
           other.format == this.format &&
           other.title == this.title &&
@@ -841,6 +875,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
   final Value<String> id;
   final Value<String?> coverId;
   final Value<int> orderIndex;
+  final Value<String?> path;
   final Value<int?> modified;
   final Value<String?> format;
   final Value<String?> title;
@@ -863,6 +898,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
     this.id = const Value.absent(),
     this.coverId = const Value.absent(),
     this.orderIndex = const Value.absent(),
+    this.path = const Value.absent(),
     this.modified = const Value.absent(),
     this.format = const Value.absent(),
     this.title = const Value.absent(),
@@ -886,6 +922,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
     required String id,
     this.coverId = const Value.absent(),
     this.orderIndex = const Value.absent(),
+    this.path = const Value.absent(),
     this.modified = const Value.absent(),
     this.format = const Value.absent(),
     this.title = const Value.absent(),
@@ -909,6 +946,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
     Expression<String>? id,
     Expression<String>? coverId,
     Expression<int>? orderIndex,
+    Expression<String>? path,
     Expression<int>? modified,
     Expression<String>? format,
     Expression<String>? title,
@@ -932,6 +970,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
       if (id != null) 'id': id,
       if (coverId != null) 'cover_id': coverId,
       if (orderIndex != null) 'order_index': orderIndex,
+      if (path != null) 'path': path,
       if (modified != null) 'modified': modified,
       if (format != null) 'format': format,
       if (title != null) 'title': title,
@@ -957,6 +996,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
     Value<String>? id,
     Value<String?>? coverId,
     Value<int>? orderIndex,
+    Value<String?>? path,
     Value<int?>? modified,
     Value<String?>? format,
     Value<String?>? title,
@@ -980,6 +1020,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
       id: id ?? this.id,
       coverId: coverId ?? this.coverId,
       orderIndex: orderIndex ?? this.orderIndex,
+      path: path ?? this.path,
       modified: modified ?? this.modified,
       format: format ?? this.format,
       title: title ?? this.title,
@@ -1012,6 +1053,9 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
     }
     if (orderIndex.present) {
       map['order_index'] = Variable<int>(orderIndex.value);
+    }
+    if (path.present) {
+      map['path'] = Variable<String>(path.value);
     }
     if (modified.present) {
       map['modified'] = Variable<int>(modified.value);
@@ -1076,6 +1120,7 @@ class MetadataItemsCompanion extends UpdateCompanion<MetadataItem> {
           ..write('id: $id, ')
           ..write('coverId: $coverId, ')
           ..write('orderIndex: $orderIndex, ')
+          ..write('path: $path, ')
           ..write('modified: $modified, ')
           ..write('format: $format, ')
           ..write('title: $title, ')
@@ -1115,6 +1160,7 @@ typedef $$MetadataItemsTableCreateCompanionBuilder =
       required String id,
       Value<String?> coverId,
       Value<int> orderIndex,
+      Value<String?> path,
       Value<int?> modified,
       Value<String?> format,
       Value<String?> title,
@@ -1139,6 +1185,7 @@ typedef $$MetadataItemsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String?> coverId,
       Value<int> orderIndex,
+      Value<String?> path,
       Value<int?> modified,
       Value<String?> format,
       Value<String?> title,
@@ -1180,6 +1227,11 @@ class $$MetadataItemsTableFilterComposer
 
   ColumnFilters<int> get orderIndex => $composableBuilder(
     column: $table.orderIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get path => $composableBuilder(
+    column: $table.path,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1293,6 +1345,11 @@ class $$MetadataItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get modified => $composableBuilder(
     column: $table.modified,
     builder: (column) => ColumnOrderings(column),
@@ -1399,6 +1456,9 @@ class $$MetadataItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get path =>
+      $composableBuilder(column: $table.path, builder: (column) => column);
+
   GeneratedColumn<int> get modified =>
       $composableBuilder(column: $table.modified, builder: (column) => column);
 
@@ -1493,6 +1553,7 @@ class $$MetadataItemsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String?> coverId = const Value.absent(),
                 Value<int> orderIndex = const Value.absent(),
+                Value<String?> path = const Value.absent(),
                 Value<int?> modified = const Value.absent(),
                 Value<String?> format = const Value.absent(),
                 Value<String?> title = const Value.absent(),
@@ -1515,6 +1576,7 @@ class $$MetadataItemsTableTableManager
                 id: id,
                 coverId: coverId,
                 orderIndex: orderIndex,
+                path: path,
                 modified: modified,
                 format: format,
                 title: title,
@@ -1539,6 +1601,7 @@ class $$MetadataItemsTableTableManager
                 required String id,
                 Value<String?> coverId = const Value.absent(),
                 Value<int> orderIndex = const Value.absent(),
+                Value<String?> path = const Value.absent(),
                 Value<int?> modified = const Value.absent(),
                 Value<String?> format = const Value.absent(),
                 Value<String?> title = const Value.absent(),
@@ -1561,6 +1624,7 @@ class $$MetadataItemsTableTableManager
                 id: id,
                 coverId: coverId,
                 orderIndex: orderIndex,
+                path: path,
                 modified: modified,
                 format: format,
                 title: title,

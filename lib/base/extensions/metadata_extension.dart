@@ -9,9 +9,13 @@ import 'package:sylvakru/base/utils/path.dart';
 
 extension MetadataItemMapper on MetadataItem {
   MyAudioMetadata toMetadata() {
-    String path = id;
-    if (sourceType == .local && Platform.isIOS) {
-      path = revertIOSPath(path);
+    late String? validPath;
+    if (isStreamSource) {
+      validPath = path;
+    } else if (sourceType == .local && Platform.isIOS) {
+      validPath = revertIOSPath(id);
+    } else {
+      validPath = id;
     }
 
     return MyAudioMetadata(
@@ -33,7 +37,7 @@ extension MetadataItemMapper on MetadataItem {
 
       id: id,
       coverId: coverId,
-      path: path,
+      path: validPath,
 
       modified: modified != null
           ? DateTime.fromMillisecondsSinceEpoch(modified!)
@@ -57,6 +61,7 @@ extension MyAudioMetadataMapper on MyAudioMetadata {
       coverId: Value(coverId),
 
       orderIndex: Value(orderIndex),
+      path: Value(isStreamSource ? path : null),
 
       modified: Value(modified?.millisecondsSinceEpoch),
 

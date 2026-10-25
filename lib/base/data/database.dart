@@ -15,6 +15,7 @@ class MetadataItems extends Table {
   /// rowid 隐式保存的，重排因此必须重写每一行。显式存下来之后，
   /// 重排只需要更新下标发生平移的那一段。
   IntColumn get orderIndex => integer().withDefault(const Constant(0))();
+  TextColumn get path => text().nullable()();
 
   IntColumn get modified => integer().nullable()();
 
@@ -51,7 +52,7 @@ class MetadataDB extends _$MetadataDB {
   MetadataDB(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {
@@ -80,6 +81,10 @@ class MetadataDB extends _$MetadataDB {
 
         if (from < 5) {
           await m.addColumn(metadataItems, metadataItems.lyricsTimeOffset);
+        }
+
+        if (from < 6) {
+          await m.addColumn(metadataItems, metadataItems.path);
         }
       },
     );
