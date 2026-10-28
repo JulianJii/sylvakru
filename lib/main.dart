@@ -9,6 +9,7 @@ import 'package:liquid_glass_widgets/liquid_glass_setup.dart';
 import 'package:sylvakru/base/services/color_manager.dart';
 import 'package:sylvakru/base/app.dart';
 import 'package:sylvakru/base/services/logger.dart';
+import 'package:sylvakru/base/services/proxy_service.dart';
 import 'package:sylvakru/base/services/keyboard.dart';
 import 'package:sylvakru/base/services/my_tray_listener.dart';
 import 'package:sylvakru/base/services/my_window_listener.dart';
@@ -66,6 +67,8 @@ Future<void> main() async {
   }
 
   _registerLicenses();
+
+  await initSystemProxy();
 
   await initAudioService();
 
